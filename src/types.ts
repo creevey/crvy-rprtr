@@ -5,6 +5,47 @@ export interface Images {
   error?: string;
 }
 
+export interface Attachment {
+  name: string;
+  path: string;
+  contentType: string;
+}
+
+export interface Location {
+  file: string;
+  line: number;
+}
+
+export interface PlaywrightTestResult {
+  id: string;
+  title: string;
+  location: Location;
+  status: "passed" | "failed" | "skipped";
+  attachments: Attachment[];
+  error?: string;
+  duration?: number;
+}
+
+export interface WebSocketMessage {
+  type: "test-begin" | "test-end" | "run-end" | "approve" | "sync";
+  data: unknown;
+}
+
+export interface TestBeginMessage {
+  type: "test-begin";
+  data: { id: string; title: string; location: Location };
+}
+
+export interface TestEndMessage {
+  type: "test-end";
+  data: PlaywrightTestResult;
+}
+
+export interface RunEndMessage {
+  type: "run-end";
+  data: { status: "passed" | "failed" | "skipped"; count: number };
+}
+
 export type TestStatus =
   | "unknown"
   | "pending"
@@ -33,6 +74,9 @@ export interface TestData {
   status?: TestStatus;
   results?: TestResult[];
   approved?: Partial<Record<string, number>> | null;
+  attachments?: Attachment[];
+  title?: string;
+  location?: Location;
 }
 
 export interface CreeveyTest extends TestData {

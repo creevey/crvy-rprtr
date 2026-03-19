@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { CreeveySuite, CreeveyTest, Images, ImagesViewMode } from '../types';
-  import { useCreeveyContext } from './CreeveyContext.svelte';
+  import { useCreeveyContext } from './CreeveyContext.ts';
   import './styles.css';
 
   interface Props {

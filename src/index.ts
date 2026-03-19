@@ -1,6 +1,6 @@
 import { mount } from "svelte";
-import { provideCreeveyContext } from "./client/CreeveyContext.svelte";
-import { App } from "./client/App.svelte";
+import { provideCreeveyContext } from "./client/CreeveyContext.ts";
+import App from "./client/App.svelte";
 import type { CreeveySuite, CreeveyTest, TestData } from "./types";
 
 interface InitialState {
@@ -86,6 +86,17 @@ provideCreeveyContext({
 });
 
 const initialState = await loadReportData();
+
+const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
+const wsUrl = `${wsProtocol}//${location.host}`;
+
+const ws = new WebSocket(wsUrl);
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if (msg.type === "test-update" || msg.type === "run-end") {
+    window.location.reload();
+  }
+};
 
 const root = document.getElementById("root")!;
 mount(App, {

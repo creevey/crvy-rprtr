@@ -72,7 +72,7 @@ export class CreeveyReporter implements Reporter {
 
   async onTestEnd(test: TestCase, result: TestResult): Promise<void> {
     const savedAttachments = await this.saveAttachments(test.id, result);
-    
+
     this.send({
       type: "test-end",
       data: {
@@ -80,7 +80,7 @@ export class CreeveyReporter implements Reporter {
         title: test.title,
         status: result.status,
         attachments: savedAttachments,
-        error: result.errors.length > 0 ? result.errors[0].message : undefined,
+        error: result.errors.length > 0 ? result.errors[0]?.message : undefined,
         duration: result.duration,
       },
     });
@@ -89,7 +89,7 @@ export class CreeveyReporter implements Reporter {
   private async saveAttachments(testId: string, result: TestResult): Promise<AttachmentData[]> {
     const savedAttachments: AttachmentData[] = [];
     const testScreenshotDir = join(this.screenshotDir, this.sanitizeId(testId));
-    
+
     for (const attachment of result.attachments) {
       if (attachment.contentType === "image/png" && attachment.path) {
         try {
@@ -113,7 +113,7 @@ export class CreeveyReporter implements Reporter {
         }
       }
     }
-    
+
     return savedAttachments;
   }
 

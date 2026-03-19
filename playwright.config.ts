@@ -6,10 +6,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: [
-    ["./packages/playwright-reporter/index.ts", { serverUrl: "ws://localhost:3000" }],
-    ["html"],
-  ],
+  reporter: [["./src/reporter.ts", { serverUrl: "ws://localhost:3000" }], ["html"]],
   use: {
     baseURL: "http://localhost:3000",
     trace: "on-first-retry",

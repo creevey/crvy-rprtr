@@ -42,7 +42,11 @@ loadReport();
 function handleWebSocketMessage(msg: WebSocketMessage): void {
   switch (msg.type) {
     case "test-begin": {
-      const { id, title, location } = msg.data as { id: string; title: string; location: { file: string; line: number } };
+      const { id, title, location } = msg.data as {
+        id: string;
+        title: string;
+        location: { file: string; line: number };
+      };
       if (!reportData.tests[id]) {
         reportData.tests[id] = {
           id,
@@ -57,17 +61,25 @@ function handleWebSocketMessage(msg: WebSocketMessage): void {
       break;
     }
     case "test-end": {
-      const data = msg.data as { id: string; status: "passed" | "failed" | "skipped"; attachments: Array<{ name: string; path: string; contentType: string }>; error?: string; duration?: number };
+      const data = msg.data as {
+        id: string;
+        status: "passed" | "failed" | "skipped";
+        attachments: Array<{ name: string; path: string; contentType: string }>;
+        error?: string;
+        duration?: number;
+      };
       const test = reportData.tests[data.id];
       if (test) {
         test.attachments = data.attachments;
         test.status = mapStatus(data.status);
-        test.results = [{
-          status: data.status === "passed" ? "success" : "failed",
-          retries: 0,
-          error: data.error,
-          duration: data.duration,
-        }];
+        test.results = [
+          {
+            status: data.status === "passed" ? "success" : "failed",
+            retries: 0,
+            error: data.error,
+            duration: data.duration,
+          },
+        ];
       }
       broadcastToBrowsers({ type: "test-update", data });
       break;
@@ -89,10 +101,14 @@ function broadcastToBrowsers(msg: object): void {
 
 function mapStatus(status: "passed" | "failed" | "skipped"): TestData["status"] {
   switch (status) {
-    case "passed": return "success";
-    case "failed": return "failed";
-    case "skipped": return "pending";
-    default: return "unknown";
+    case "passed":
+      return "success";
+    case "failed":
+      return "failed";
+    case "skipped":
+      return "pending";
+    default:
+      return "unknown";
   }
 }
 
@@ -101,10 +117,6 @@ Bun.serve({
   routes: {
     "/": async () => {
       const html = Bun.file("./index.html");
-      return new Response(html, { headers: { "Content-Type": "text/html" } });
-    },
-    "/test-page": async () => {
-      const html = Bun.file("./tests/test-page.html");
       return new Response(html, { headers: { "Content-Type": "text/html" } });
     },
     "/src/client/styles.css": async () => {
@@ -116,11 +128,12 @@ Bun.serve({
       const filePath = `./src/${path}`;
       const file = Bun.file(filePath);
       if (await file.exists()) {
-        const contentType = filePath.endsWith(".ts") || filePath.endsWith(".tsx")
-          ? "application/javascript"
-          : filePath.endsWith(".css")
-          ? "text/css"
-          : "text/plain";
+        const contentType =
+          filePath.endsWith(".ts") || filePath.endsWith(".tsx")
+            ? "application/javascript"
+            : filePath.endsWith(".css")
+              ? "text/css"
+              : "text/plain";
         return new Response(file, { headers: { "Content-Type": contentType } });
       }
       return new Response("Not Found", { status: 404 });
@@ -184,10 +197,13 @@ Bun.serve({
       const filePath = `./dist/${path}`;
       const file = Bun.file(filePath);
       if (await file.exists()) {
-        const contentType = filePath.endsWith(".css") ? "text/css" 
-          : filePath.endsWith(".js") ? "application/javascript"
-          : filePath.endsWith(".svelte") ? "text/plain"
-          : "application/octet-stream";
+        const contentType = filePath.endsWith(".css")
+          ? "text/css"
+          : filePath.endsWith(".js")
+            ? "application/javascript"
+            : filePath.endsWith(".svelte")
+              ? "text/plain"
+              : "application/octet-stream";
         return new Response(file, { headers: { "Content-Type": contentType } });
       }
       return new Response("Not Found", { status: 404 });

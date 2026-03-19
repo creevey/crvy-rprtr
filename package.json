@@ -1,11 +1,11 @@
 {
-  "name": "creevey-reporter",
+  "name": "@creevey/playwright-reporter",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
-  "module": "index.ts",
   "scripts": {
-    "dev": "bun run --watch src/server.ts",
-    "build": "bun build ./src/index.ts --target=browser --outdir=./dist",
+    "dev": "bun --watch build.ts & bun run --watch src/server.ts",
+    "build": "bun build.ts",
     "start": "bun src/server.ts",
     "lint": "oxlint",
     "fmt": "oxfmt --write",
@@ -21,9 +21,9 @@
     "@playwright/test": "^1.58.2",
     "@types/bun": "latest",
     "esbuild": "^0.27.4",
+    "esbuild-svelte": "^0.9.4",
     "oxfmt": "^0.41.0",
     "oxlint": "^1.56.0",
-    "playwright": "^1.58.2",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {

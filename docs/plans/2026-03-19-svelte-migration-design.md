@@ -12,12 +12,12 @@ Migrate the creevey-reporter UI from React to Svelte 5 with runes, keeping Bun.s
 
 ## Stack
 
-| Layer | Technology |
-|-------|------------|
-| UI Framework | Svelte 5 |
-| Server | Bun.serve (unchanged) |
-| Styling | Plain CSS (port existing) |
-| Language | TypeScript |
+| Layer        | Technology                |
+| ------------ | ------------------------- |
+| UI Framework | Svelte 5                  |
+| Server       | Bun.serve (unchanged)     |
+| Styling      | Plain CSS (port existing) |
+| Language     | TypeScript                |
 
 ## File Structure
 
@@ -35,27 +35,28 @@ src/
 
 ## Component Mapping
 
-| React Component | Svelte 5 Component |
-|-----------------|---------------------|
-| App.tsx | App.svelte |
-| Sidebar.tsx (inline) | Sidebar.svelte |
+| React Component          | Svelte 5 Component |
+| ------------------------ | ------------------ |
+| App.tsx                  | App.svelte         |
+| Sidebar.tsx (inline)     | Sidebar.svelte     |
 | ImageViewer.tsx (inline) | ImageViewer.svelte |
 
 ## State Management
 
 Replace React hooks with Svelte 5 runes:
 
-| React | Svelte 5 |
-|-------|----------|
-| `useState<T>(initial)` | `let value = $state<T>(initial)` |
-| `useEffect(() => {...})` | `$effect(() => {...})` |
-| `useMemo(() => compute(), [deps])` | `$derived(expr)` |
-| `useCallback(fn, [deps])` | Regular function or `$derived.by(() => fn)` |
-| `createContext` | Svelte context or `$context` |
+| React                              | Svelte 5                                    |
+| ---------------------------------- | ------------------------------------------- |
+| `useState<T>(initial)`             | `let value = $state<T>(initial)`            |
+| `useEffect(() => {...})`           | `$effect(() => {...})`                      |
+| `useMemo(() => compute(), [deps])` | `$derived(expr)`                            |
+| `useCallback(fn, [deps])`          | Regular function or `$derived.by(() => fn)` |
+| `createContext`                    | Svelte context or `$context`                |
 
 ## Key Svelte 5 Patterns
 
 ### Props
+
 ```svelte
 <script lang="ts">
   interface Props {
@@ -67,11 +68,12 @@ Replace React hooks with Svelte 5 runes:
 ```
 
 ### Reactive State
+
 ```svelte
 <script lang="ts">
   let count = $state(0);
   let doubled = $derived(count * 2);
-  
+
   $effect(() => {
     console.log('count changed:', count);
   });
@@ -79,6 +81,7 @@ Replace React hooks with Svelte 5 runes:
 ```
 
 ### Event Handlers
+
 ```svelte
 <button onclick={() => handleClick()}>Click</button>
 ```
@@ -95,20 +98,20 @@ Replace React hooks with Svelte 5 runes:
 
 ## API Endpoints (Unchanged)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/report` | GET | Get test report data |
-| `/api/approve` | POST | Approve single image |
-| `/api/approve-all` | POST | Approve all images |
-| `/api/images/:path*` | GET | Serve image files |
+| Endpoint             | Method | Description          |
+| -------------------- | ------ | -------------------- |
+| `/api/report`        | GET    | Get test report data |
+| `/api/approve`       | POST   | Approve single image |
+| `/api/approve-all`   | POST   | Approve all images   |
+| `/api/images/:path*` | GET    | Serve image files    |
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Svelte 5 runes learning curve | Use incremental debugging, test each component |
-| Bun.serve compatibility | Bun has native Svelte support via bundling |
-| CSS scoping differences | Svelte scopes styles by default; use `:global()` where needed |
+| Risk                          | Mitigation                                                    |
+| ----------------------------- | ------------------------------------------------------------- |
+| Svelte 5 runes learning curve | Use incremental debugging, test each component                |
+| Bun.serve compatibility       | Bun has native Svelte support via bundling                    |
+| CSS scoping differences       | Svelte scopes styles by default; use `:global()` where needed |
 
 ## Success Criteria
 

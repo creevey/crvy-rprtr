@@ -13,6 +13,7 @@
 ## Task 1: Install Svelte 5
 
 **Files:**
+
 - Modify: `package.json`
 
 **Step 1: Add Svelte 5 dependency**
@@ -29,17 +30,111 @@ Expected: svelte@^5.x.x listed
 ## Task 2: Create Svelte Entry Point
 
 **Files:**
+
 - Create: `src/index.ts`
 - Delete: `src/index.tsx`
 
 **Step 1: Create index.ts**
 
 ```typescript
-import { mount } from 'svelte';
-import { App } from './client/App.svelte';
+import { mount } from "svelte";
+import { provideCreeveyContext } from "./client/CreeveyContext.svelte";
+import { App } from "./client/App.svelte";
+import type { CreeveySuite, CreeveyTest, TestData } from "./types.js";
 
-const root = document.getElementById('root')!;
-mount(App, { target: root });
+interface InitialState {
+  tests: CreeveySuite;
+  isReport: boolean;
+  isUpdateMode: boolean;
+}
+
+async function loadReportData(): Promise<InitialState> {
+  const response = await fetch("/api/report");
+  const data = await response.json();
+  return {
+    tests: treeifyTests(data.tests as Record<string, TestData>),
+    isReport: true,
+    isUpdateMode: data.isUpdateMode ?? false,
+  };
+}
+
+function treeifyTests(testsById: Record<string, TestData>): CreeveySuite {
+  const rootSuite: CreeveySuite = {
+    path: [],
+    skip: false,
+    opened: true,
+    checked: true,
+    indeterminate: false,
+    children: {},
+  };
+
+  Object.values(testsById).forEach((test) => {
+    if (!test) return;
+
+    const storyPath = test.storyPath ?? [];
+    const browser = test.browser ?? "";
+    const testName = test.testName;
+
+    const pathParts: string[] = [...storyPath, testName, browser].filter((p): p is string =>
+      Boolean(p),
+    );
+    const [browserName, ...testPathParts] = pathParts.reverse();
+    if (!browserName) return;
+
+    const lastSuite = testPathParts.reverse().reduce<CreeveySuite>((suite, token) => {
+      if (!suite.children[token]) {
+        suite.children[token] = {
+          path: [...suite.path, token],
+          skip: false,
+          opened: false,
+          checked: true,
+          indeterminate: false,
+          children: {},
+        };
+      }
+      return suite.children[token] as CreeveySuite;
+    }, rootSuite);
+
+    lastSuite.children[browserName] = {
+      ...test,
+      checked: true,
+    } as CreeveyTest;
+  });
+
+  return rootSuite;
+}
+
+const handleApprove = async (id: string, retry: number, image: string): Promise<void> => {
+  await fetch("/api/approve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, retry, image }),
+  });
+  window.location.reload();
+};
+
+const handleApproveAll = async (): Promise<void> => {
+  await fetch("/api/approve-all", { method: "POST" });
+  window.location.reload();
+};
+
+provideCreeveyContext({
+  isReport: true,
+  isUpdateMode: false,
+  onApproveAll: handleApproveAll,
+});
+
+const initialState = await loadReportData();
+
+const root = document.getElementById("root")!;
+mount(App, {
+  target: root,
+  props: {
+    initialState,
+    onApprove: handleApprove,
+    onApproveAll: handleApproveAll,
+  },
+});
 ```
 
 **Step 2: Run typecheck**
@@ -52,6 +147,7 @@ Expected: No errors (Svelte needs proper tsconfig)
 ## Task 3: Configure TypeScript for Svelte
 
 **Files:**
+
 - Modify: `tsconfig.json`
 
 **Step 1: Add Svelte compiler options**
@@ -87,6 +183,7 @@ Expected: No errors
 ## Task 4: Create App.svelte Component
 
 **Files:**
+
 - Create: `src/client/App.svelte`
 
 **Step 1: Write the component**
@@ -108,14 +205,16 @@ Expected: No errors
   }
 
   let { initialState, onApprove, onApproveAll }: Props = $props();
-  
+
   const { tests } = initialState;
-  
+  const { onSuiteOpen, onSuiteToggle } = useCreeveyContext();
+
   let selectedTest = $state<CreeveyTest | null>(null);
   let retry = $state(0);
   let imageName = $state('');
   let viewMode = $state<ImagesViewMode>('side-by-side');
-  
+  let swapActive = $state(false);
+
   let testResults = $derived(selectedTest?.results?.[retry - 1] ?? null);
   let currentImage = $derived(testResults?.images?.[imageName] ?? null);
   let canApprove = $derived(
@@ -132,9 +231,28 @@ Expected: No errors
     imageName = images ? Object.keys(images)[0] ?? '' : '';
   }
 
+  function handleSuiteOpen(path: string[], opened: boolean) {
+    onSuiteOpen(path, opened);
+  }
+
+  function handleSuiteToggle(path: string[], checked: boolean) {
+    onSuiteToggle(path, checked);
+  }
+
   function handleApprove() {
     if (selectedTest && canApprove) {
       onApprove(selectedTest.id, retry - 1, imageName);
+    }
+  }
+
+  function handleSwapToggle() {
+    swapActive = !swapActive;
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === ' ' && viewMode === 'swap') {
+      e.preventDefault();
+      handleSwapToggle();
     }
   }
 
@@ -147,6 +265,8 @@ Expected: No errors
     }
   });
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div class="app">
   <div class="sidebar">
@@ -161,6 +281,10 @@ Expected: No errors
           <span class="status-dot failed"></span>
           <span>{countByStatus(tests, 'failed')}</span>
         </div>
+        <div class="status-item">
+          <span class="status-dot pending"></span>
+          <span>{countByStatus(tests, 'pending')}</span>
+        </div>
       </div>
     </div>
     <div class="test-list">
@@ -169,7 +293,9 @@ Expected: No errors
           child as CreeveySuite | CreeveyTest,
           0,
           selectedTest?.id,
-          handleSelectTest
+          handleSelectTest,
+          handleSuiteOpen,
+          handleSuiteToggle
         )}
       {/each}
     </div>
@@ -204,10 +330,10 @@ Expected: No errors
         </div>
       </div>
       <div class="content">
-        <ImageViewer image={currentImage} {viewMode} />
+        {@render ImageViewer(currentImage, viewMode, swapActive, handleSwapToggle)}
       </div>
       <div class="footer">
-        <span class="nav-hint">Use arrow keys to navigate</span>
+        <span class="nav-hint">Use arrow keys to navigate, Enter to approve</span>
         <button class="approve-btn" disabled={!canApprove} onclick={handleApprove}>
           {canApprove ? 'Approve' : 'Approved'}
         </button>
@@ -218,15 +344,17 @@ Expected: No errors
   </div>
 </div>
 
-{#snippet TestItem(item, level, selectedId, onSelect)}
+{#snippet TestItem(item, level, selectedId, onSelect, onOpen, onToggle)}
   {@const isTestItem = isTest(item)}
   {@const hasChildren = !isTestItem && Object.keys(item.children).length > 0}
+  {@const suiteItem = item as CreeveySuite}
   <div
     class="test-item {selectedId && isTestItem && item.id === selectedId ? 'selected' : ''}"
     style="padding-left: {16 + level * 16}px"
-    onclick={() => isTestItem ? onSelect(item) : (item.opened = !item.opened)}
+    onclick={() => isTestItem ? onSelect(item) : onOpen(item.path, !item.opened)}
     role="button"
     tabindex="0"
+    onkeydown={(e) => { if (e.key === 'Enter') { isTestItem ? onSelect(item) : onOpen(item.path, !item.opened); }}}
   >
     {#if hasChildren}
       <span class="chevron {item.opened ? 'expanded' : ''}">▶</span>
@@ -236,6 +364,7 @@ Expected: No errors
       class="checkbox"
       checked={item.checked}
       onclick={(e) => e.stopPropagation()}
+      onchange={(e) => { if (!isTestItem) onToggle(item.path, (e.target as HTMLInputElement).checked); }}
     />
     <span class="title">
       {isTestItem ? item.testName ?? item.storyId : item.path[item.path.length - 1] ?? 'Tests'}
@@ -246,13 +375,12 @@ Expected: No errors
   </div>
   {#if !isTestItem && item.opened}
     {#each Object.values(item.children).filter(Boolean) as child}
-      {@render TestItem(child as CreeveySuite | CreeveyTest, level + 1, selectedId, onSelect)}
+      {@render TestItem(child as CreeveySuite | CreeveyTest, level + 1, selectedId, onSelect, onOpen, onToggle)}
     {/each}
   {/if}
 {/snippet}
 
-{#snippet ImageViewer(props)}
-  {@const { image, viewMode } = props}
+{#snippet ImageViewer(image, viewMode, swapActive, onSwapToggle)}
   {#if !image}
     <div class="empty-state">No image to display</div>
   {:else if viewMode === 'side-by-side'}
@@ -276,6 +404,34 @@ Expected: No errors
         </div>
       {/if}
     </div>
+  {:else if viewMode === 'swap'}
+    <div class="image-container">
+      <div class="image-panel" style="flex: 2">
+        <h3>Swap View (click or press Space)</h3>
+        <div
+          style="position: relative; flex: 1; cursor: pointer;"
+          onclick={onSwapToggle}
+          role="button"
+          tabindex="0"
+          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSwapToggle(); }}
+        >
+          {#if image.expect}
+            <img
+              src={image.expect}
+              alt="Expected"
+              style="position: absolute; top: 0; left: 0; width: 100%; opacity: {swapActive ? 0.5 : 1};"
+            />
+          {/if}
+          {#if image.actual}
+            <img
+              src={image.actual}
+              alt="Actual"
+              style="position: absolute; top: 0; left: 0; width: 100%; opacity: {swapActive ? 1 : 0.5};"
+            />
+          {/if}
+        </div>
+      </div>
+    </div>
   {:else if viewMode === 'blend'}
     <div class="image-container">
       <div class="image-panel" style="flex: 2">
@@ -289,6 +445,15 @@ Expected: No errors
           {/if}
         </div>
       </div>
+    </div>
+  {:else}
+    <div class="image-container">
+      {#if image.actual}
+        <div class="image-panel" style="flex: 2">
+          <h3>Actual</h3>
+          <img src={image.actual} alt="Actual" />
+        </div>
+      {/if}
     </div>
   {/if}
 {/snippet}
@@ -325,6 +490,7 @@ Expected: No errors
 ## Task 5: Create CreeveyContext.svelte
 
 **Files:**
+
 - Create: `src/client/CreeveyContext.svelte`
 
 **Step 1: Write the context**
@@ -350,8 +516,42 @@ Expected: No errors
 
   export type FocusableItem = null | string[];
 
-  export function createCreeveyContext(initial: CreeveyContextType): CreeveyContextType {
-    return initial;
+  const defaultContext: CreeveyContextType = {
+    isReport: true,
+    isRunning: false,
+    isUpdateMode: false,
+    onImageNext: undefined,
+    onImageApprove: undefined,
+    onApproveAll: () => {},
+    onStart: () => {},
+    onStop: () => {},
+    onSuiteOpen: () => {},
+    onSuiteToggle: () => {},
+    sidebarFocusedItem: null,
+    setSidebarFocusedItem: () => {},
+  };
+
+  export function createCreeveyContext(initial: Partial<CreeveyContextType> = {}): CreeveyContextType {
+    return { ...defaultContext, ...initial };
+  }
+</script>
+
+<script lang="ts">
+  import { getContext, setContext } from 'svelte';
+  import { createCreeveyContext, type CreeveyContextType, type FocusableItem } from './CreeveyContext.svelte';
+
+  const CONTEXT_KEY = Symbol('creevey-context');
+
+  export function provideCreeveyContext(initial?: Partial<CreeveyContextType>): void {
+    setContext(CONTEXT_KEY, createCreeveyContext(initial));
+  }
+
+  export function useCreeveyContext(): CreeveyContextType {
+    const ctx = getContext<CreeveyContextType>(CONTEXT_KEY);
+    if (!ctx) {
+      return createCreeveyContext();
+    }
+    return ctx;
   }
 </script>
 ```
@@ -361,6 +561,7 @@ Expected: No errors
 ## Task 6: Update index.html for Svelte
 
 **Files:**
+
 - Modify: `index.html`
 
 **Step 1: Update script reference**
@@ -386,6 +587,7 @@ Expected: No errors
 ## Task 7: Update Server to Handle Svelte Files
 
 **Files:**
+
 - Modify: `src/server.ts`
 
 **Step 1: Verify routes handle .ts files**
@@ -402,6 +604,7 @@ Expected: Server starts without errors
 ## Task 8: Remove React Dependencies
 
 **Files:**
+
 - Modify: `package.json`
 - Delete: `src/client/App.tsx`
 - Delete: `src/client/CreeveyContext.tsx`

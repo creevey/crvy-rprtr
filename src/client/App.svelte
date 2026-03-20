@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { CreeveySuite, CreeveyTest, Images, ImagesViewMode } from '../types';
-  import { useCreeveyContext } from './CreeveyContext.ts';
   import './styles.css';
 
   interface Props {
@@ -16,8 +15,8 @@
   let { initialState, onApprove, onApproveAll }: Props = $props();
   
   const { tests } = initialState;
-  const { onSuiteOpen, onSuiteToggle } = useCreeveyContext();
-  
+
+  let openSuites = $state<Record<string, boolean>>({});
   let selectedTest = $state<CreeveyTest | null>(null);
   let retry = $state(0);
   let imageName = $state('');
@@ -41,11 +40,9 @@
   }
 
   function handleSuiteOpen(path: string[], opened: boolean) {
-    onSuiteOpen(path, opened);
-  }
-
-  function handleSuiteToggle(path: string[], checked: boolean) {
-    onSuiteToggle(path, checked);
+    const key = path.join('/');
+    if (opened) openSuites[key] = true;
+    else delete openSuites[key];
   }
 
   function handleApprove() {
@@ -97,14 +94,13 @@
       </div>
     </div>
     <div class="test-list">
-      {#each Object.values(tests.children).filter(Boolean) as child}
+      {#each Object.values(tests.children).filter(Boolean).filter((c) => hasScreenshots(c as CreeveySuite | CreeveyTest)) as child}
         {@render TestItem(
           child as CreeveySuite | CreeveyTest,
           0,
           selectedTest?.id,
           handleSelectTest,
-          handleSuiteOpen,
-          handleSuiteToggle
+          handleSuiteOpen
         )}
       {/each}
     </div>
@@ -153,38 +149,32 @@
   </div>
 </div>
 
-{#snippet TestItem(item: CreeveySuite | CreeveyTest, level: number, selectedId: string | undefined, onSelect: (test: CreeveyTest) => void, onOpen: (path: string[], opened: boolean) => void, onToggle: (path: string[], checked: boolean) => void)}
+{#snippet TestItem(item: CreeveySuite | CreeveyTest, level: number, selectedId: string | undefined, onSelect: (test: CreeveyTest) => void, onOpen: (path: string[], opened: boolean) => void)}
   {@const isTestItem = isTest(item)}
-  {@const hasChildren = !isTestItem && Object.keys(item.children).length > 0}
   {@const suiteItem = item as CreeveySuite}
+  {@const hasChildren = !isTestItem && Object.keys(suiteItem.children).length > 0}
+  {@const isOpen = !isTestItem && Boolean(openSuites[suiteItem.path.join('/')])}
   <div
-    class="test-item {selectedId && isTestItem && item.id === selectedId ? 'selected' : ''}"
+    class="test-item {selectedId && isTestItem && (item as CreeveyTest).id === selectedId ? 'selected' : ''}"
     style="padding-left: {16 + level * 16}px"
-    onclick={() => isTestItem ? onSelect(item) : onOpen(item.path, !item.opened)}
+    onclick={() => isTestItem ? onSelect(item as CreeveyTest) : onOpen(suiteItem.path, !isOpen)}
     role="button"
     tabindex="0"
-    onkeydown={(e) => { if (e.key === 'Enter') { isTestItem ? onSelect(item) : onOpen(item.path, !item.opened); }}}
+    onkeydown={(e) => { if (e.key === 'Enter') { isTestItem ? onSelect(item as CreeveyTest) : onOpen(suiteItem.path, !isOpen); }}}
   >
     {#if hasChildren}
-      <span class="chevron {item.opened ? 'expanded' : ''}">▶</span>
+      <span class="chevron {isOpen ? 'expanded' : ''}">▶</span>
     {/if}
-    <input
-      type="checkbox"
-      class="checkbox"
-      checked={item.checked}
-      onclick={(e) => e.stopPropagation()}
-      onchange={(e) => { if (!isTestItem) onToggle(item.path, (e.target as HTMLInputElement).checked); }}
-    />
     <span class="title">
-      {isTestItem ? item.testName ?? item.storyId : item.path[item.path.length - 1] ?? 'Tests'}
+      {isTestItem ? (item as CreeveyTest).testName ?? (item as CreeveyTest).storyId : suiteItem.path[suiteItem.path.length - 1] ?? 'Tests'}
     </span>
     {#if item.status}
       <span class="status-icon status-dot {item.status}"></span>
     {/if}
   </div>
-  {#if !isTestItem && item.opened}
-    {#each Object.values(item.children).filter(Boolean) as child}
-      {@render TestItem(child as CreeveySuite | CreeveyTest, level + 1, selectedId, onSelect, onOpen, onToggle)}
+  {#if isOpen}
+    {#each Object.values(suiteItem.children).filter(Boolean).filter((c) => hasScreenshots(c as CreeveySuite | CreeveyTest)) as child}
+      {@render TestItem(child as CreeveySuite | CreeveyTest, level + 1, selectedId, onSelect, onOpen)}
     {/each}
   {/if}
 {/snippet}
@@ -275,6 +265,17 @@
       'id' in x &&
       'storyId' in x
     );
+  }
+
+  function hasScreenshots(item: CreeveySuite | CreeveyTest): boolean {
+    if (isTest(item)) {
+      return item.results?.some(
+        (r) => r.images && Object.keys(r.images).length > 0
+      ) ?? false;
+    }
+    return Object.values(item.children)
+      .filter(Boolean)
+      .some((child) => hasScreenshots(child as CreeveySuite | CreeveyTest));
   }
 
   function countByStatus(suite: CreeveySuite, status: string): number {

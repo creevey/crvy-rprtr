@@ -113,10 +113,6 @@ body {
   transform: rotate(90deg);
 }
 
-.test-item .checkbox {
-  margin-right: 8px;
-}
-
 .test-item .title {
   flex: 1;
   font-size: 13px;

@@ -125,12 +125,12 @@ export class CreeveyReporter implements Reporter {
       if (attachment.contentType === "image/png" && attachment.path) {
         try {
           await mkdir(testScreenshotDir, { recursive: true });
-          const fileName = `${attachment.name}.png`;
+          const fileName = attachment.name;
           const destPath = join(testScreenshotDir, fileName);
           await copyFile(attachment.path, destPath);
           savedAttachments.push({
             name: attachment.name,
-            path: `${testId}/${fileName}`,
+            path: `${this.sanitizeId(testId)}/${fileName}`,
             contentType: attachment.contentType,
           });
           console.log(`[CreeveyReporter] Saved screenshot: ${destPath}`);

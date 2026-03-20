@@ -19,12 +19,15 @@ const reportData: ReportData = {
   screenshotDir: "./screenshots",
 };
 
-function loadReport(): void {
+async function loadReport(): Promise<void> {
   try {
     const reportPath = "./report.json";
     const file = Bun.file(reportPath);
     if (file.size > 0) {
-      const data = file.json() as { tests?: Record<string, TestData>; isUpdateMode?: boolean };
+      const data = (await file.json()) as {
+        tests?: Record<string, TestData>;
+        isUpdateMode?: boolean;
+      };
       reportData.tests = data.tests ?? {};
       reportData.isUpdateMode = data.isUpdateMode ?? false;
     }
@@ -33,8 +36,8 @@ function loadReport(): void {
   }
 }
 
-function saveReport(): void {
-  Bun.write("./report.json", JSON.stringify(reportData, null, 2));
+async function saveReport(): Promise<void> {
+  await Bun.write("./report.json", JSON.stringify(reportData, null, 2));
 }
 
 interface OfflineReport {
@@ -49,13 +52,11 @@ interface OfflineReport {
   }>;
 }
 
-function mergeOfflineReport(offlineReport: OfflineReport): void {
-  console.log(
-    `[Server] Merging offline report from ${offlineReport.workers} worker(s)`,
-  );
+async function mergeOfflineReport(offlineReport: OfflineReport): Promise<void> {
+  console.log(`[Server] Merging offline report from ${offlineReport.workers} worker(s)`);
 
   for (const event of offlineReport.events) {
-    handleWebSocketMessage({
+    await handleWebSocketMessage({
       type: event.type,
       data: event.data,
     } as WebSocketMessage);
@@ -64,16 +65,13 @@ function mergeOfflineReport(offlineReport: OfflineReport): void {
 
 async function loadOfflineReports(): Promise<void> {
   const workerIdx = parseInt(process.env.TEST_WORKER_INDEX ?? "0", 10);
-  const patterns = [
-    `creevey-offline-report-${workerIdx}.json`,
-    "creevey-offline-report.json",
-  ];
+  const patterns = [`creevey-offline-report-${workerIdx}.json`, "creevey-offline-report.json"];
 
   for (const file of patterns) {
     const f = Bun.file(file);
     if (f.size > 0) {
       try {
-        const data = await f.json() as OfflineReport;
+        const data = (await f.json()) as OfflineReport;
         if (data.version === 1 && Array.isArray(data.events)) {
           console.log(`[Server] Loading offline report: ${file}`);
           mergeOfflineReport(data);
@@ -85,10 +83,10 @@ async function loadOfflineReports(): Promise<void> {
   }
 }
 
-loadReport();
-loadOfflineReports();
+await loadReport();
+await loadOfflineReports();
 
-function handleWebSocketMessage(msg: WebSocketMessage): void {
+async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
   switch (msg.type) {
     case "test-begin": {
       const { id, title, storyPath, testName, browser, location } = msg.data as {
@@ -139,7 +137,7 @@ function handleWebSocketMessage(msg: WebSocketMessage): void {
     }
     case "run-end": {
       reportData.isRunning = false;
-      saveReport();
+      await saveReport();
       broadcastToBrowsers({ type: "run-end", data: msg.data });
       break;
     }
@@ -152,7 +150,7 @@ function attachmentsToImages(
   const images: Partial<Record<string, import("./types.ts").Images>> = {};
   for (const attachment of attachments) {
     if (attachment.contentType !== "image/png") continue;
-    const match = attachment.name.match(/^(.+?)-(actual|expected|diff)$/);
+    const match = attachment.name.match(/^(.+?)-(actual|expected|diff)(?:\.png)?$/);
     if (!match) continue;
     const baseName = match[1] as string;
     const role = match[2] as string;
@@ -201,8 +199,8 @@ Bun.serve({
       const css = Bun.file("./src/client/styles.css");
       return new Response(css, { headers: { "Content-Type": "text/css" } });
     },
-    "/src/:path*": async (req) => {
-      const path = req.params["path*"];
+    "/src/*": async (req) => {
+      const path = new URL(req.url).pathname.slice("/src/".length);
       const filePath = `./src/${path}`;
       const file = Bun.file(filePath);
       if (await file.exists()) {
@@ -229,7 +227,7 @@ Bun.serve({
             reportData.tests[id].approved = {};
           }
           (reportData.tests[id].approved as Record<string, number>)[image] = retry;
-          saveReport();
+          await saveReport();
         }
 
         return Response.json({ success: true });
@@ -249,11 +247,11 @@ Bun.serve({
           }
         }
       });
-      saveReport();
+      await saveReport();
       return Response.json({ success: true });
     },
-    "/api/images/:path*": async (req) => {
-      const path = req.params["path*"];
+    "/api/images/*": async (req) => {
+      const path = new URL(req.url).pathname.slice("/api/images/".length);
       const imagePath = `./images/${path}`;
       const file = Bun.file(imagePath);
       if (await file.exists()) {
@@ -261,8 +259,8 @@ Bun.serve({
       }
       return Response.json({ error: "Image not found" }, { status: 404 });
     },
-    "/screenshots/:path*": async (req) => {
-      const path = req.params["path*"];
+    "/screenshots/*": async (req) => {
+      const path = new URL(req.url).pathname.slice("/screenshots/".length);
       const screenshotPath = `${reportData.screenshotDir}/${path}`;
       const file = Bun.file(screenshotPath);
       if (await file.exists()) {
@@ -270,8 +268,8 @@ Bun.serve({
       }
       return Response.json({ error: "Screenshot not found" }, { status: 404 });
     },
-    "/dist/:path*": async (req) => {
-      const path = req.params["path*"];
+    "/dist/*": async (req) => {
+      const path = new URL(req.url).pathname.slice("/dist/".length);
       const filePath = `./dist/${path}`;
       const file = Bun.file(filePath);
       if (await file.exists()) {
@@ -295,7 +293,9 @@ Bun.serve({
     message(ws, message) {
       try {
         const msg = JSON.parse(message.toString()) as WebSocketMessage;
-        handleWebSocketMessage(msg);
+        handleWebSocketMessage(msg).catch((e) => {
+          console.error("Error handling WebSocket message:", e);
+        });
       } catch (e) {
         console.error("Invalid WebSocket message:", e);
       }

@@ -37,7 +37,56 @@ function saveReport(): void {
   Bun.write("./report.json", JSON.stringify(reportData, null, 2));
 }
 
+interface OfflineReport {
+  version: number;
+  generatedAt: string;
+  workers: number;
+  events: Array<{
+    type: "test-begin" | "test-end" | "run-end";
+    data: unknown;
+    timestamp: number;
+    workerIndex: number;
+  }>;
+}
+
+function mergeOfflineReport(offlineReport: OfflineReport): void {
+  console.log(
+    `[Server] Merging offline report from ${offlineReport.workers} worker(s)`,
+  );
+
+  for (const event of offlineReport.events) {
+    handleWebSocketMessage({
+      type: event.type,
+      data: event.data,
+    } as WebSocketMessage);
+  }
+}
+
+async function loadOfflineReports(): Promise<void> {
+  const workerIdx = parseInt(process.env.TEST_WORKER_INDEX ?? "0", 10);
+  const patterns = [
+    `creevey-offline-report-${workerIdx}.json`,
+    "creevey-offline-report.json",
+  ];
+
+  for (const file of patterns) {
+    const f = Bun.file(file);
+    if (f.size > 0) {
+      try {
+        const data = await f.json() as OfflineReport;
+        if (data.version === 1 && Array.isArray(data.events)) {
+          console.log(`[Server] Loading offline report: ${file}`);
+          mergeOfflineReport(data);
+        }
+      } catch {
+        // Skip invalid files
+      }
+    }
+  }
+}
+
 loadReport();
+loadOfflineReports();
 
 function handleWebSocketMessage(msg: WebSocketMessage): void {
   switch (msg.type) {

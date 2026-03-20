@@ -24,7 +24,7 @@ export class CreeveyReporter implements Reporter {
   private ws: WebSocket | null = null;
   private serverUrl: string;
   private screenshotDir: string;
-  private isConnected = false;
+  private queue: string[] = [];
 
   constructor(options: CreeveyReporterOptions = {}) {
     this.serverUrl = options.serverUrl ?? "ws://localhost:3000";
@@ -41,14 +41,14 @@ export class CreeveyReporter implements Reporter {
     try {
       this.ws = new WebSocket(this.serverUrl);
       this.ws.onopen = () => {
-        this.isConnected = true;
         console.log("[CreeveyReporter] Connected to Creevey server");
+        for (const msg of this.queue) this.ws!.send(msg);
+        this.queue = [];
       };
       this.ws.onerror = (error) => {
         console.error("[CreeveyReporter] WebSocket error:", error);
       };
       this.ws.onclose = () => {
-        this.isConnected = false;
         console.log("[CreeveyReporter] Disconnected from Creevey server");
       };
     } catch (e) {
@@ -57,11 +57,20 @@ export class CreeveyReporter implements Reporter {
   }
 
   onTestBegin(test: TestCase): void {
+    const storyPath: string[] = [];
+    let suite: Suite | undefined = test.parent;
+    while (suite && suite.type === "describe") {
+      storyPath.unshift(suite.title);
+      suite = suite.parent;
+    }
     this.send({
       type: "test-begin",
       data: {
         id: test.id,
         title: test.title,
+        storyPath,
+        testName: test.title,
+        browser: test.parent.project()?.name ?? "chromium",
         location: {
           file: test.location.file,
           line: test.location.line,
@@ -121,21 +130,33 @@ export class CreeveyReporter implements Reporter {
     return id.replace(/[^a-zA-Z0-9-_]/g, "_");
   }
 
-  onEnd(result: FullResult): void {
+  async onEnd(result: FullResult): Promise<void> {
     this.send({
       type: "run-end",
       data: {
         status: result.status,
       },
     });
-    if (this.ws) {
+    await new Promise<void>((resolve) => {
+      if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
+        resolve();
+        return;
+      }
+      this.ws.onclose = () => resolve();
+      setTimeout(() => {
+        this.ws?.close();
+        resolve();
+      }, 1000);
       this.ws.close();
-    }
+    });
   }
 
   private send(msg: object): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(msg));
+    const payload = JSON.stringify(msg);
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(payload);
+    } else {
+      this.queue.push(payload);
     }
   }
 }

@@ -42,17 +42,21 @@ loadReport();
 function handleWebSocketMessage(msg: WebSocketMessage): void {
   switch (msg.type) {
     case "test-begin": {
-      const { id, title, location } = msg.data as {
+      const { id, title, storyPath, testName, browser, location } = msg.data as {
         id: string;
         title: string;
+        storyPath: string[];
+        testName: string;
+        browser: string;
         location: { file: string; line: number };
       };
       if (!reportData.tests[id]) {
         reportData.tests[id] = {
           id,
           storyId: id,
-          storyPath: [],
-          browser: "",
+          storyPath: storyPath ?? [],
+          browser: browser ?? "",
+          testName: testName ?? title,
           title,
           location,
           status: "running",
@@ -70,12 +74,12 @@ function handleWebSocketMessage(msg: WebSocketMessage): void {
       };
       const test = reportData.tests[data.id];
       if (test) {
-        test.attachments = data.attachments;
         test.status = mapStatus(data.status);
         test.results = [
           {
             status: data.status === "passed" ? "success" : "failed",
             retries: 0,
+            images: attachmentsToImages(data.attachments),
             error: data.error,
             duration: data.duration,
           },
@@ -86,10 +90,34 @@ function handleWebSocketMessage(msg: WebSocketMessage): void {
     }
     case "run-end": {
       reportData.isRunning = false;
+      saveReport();
       broadcastToBrowsers({ type: "run-end", data: msg.data });
       break;
     }
   }
+}
+
+function attachmentsToImages(
+  attachments: Array<{ name: string; path: string; contentType: string }>,
+): Partial<Record<string, import("./types.ts").Images>> {
+  const images: Partial<Record<string, import("./types.ts").Images>> = {};
+  for (const attachment of attachments) {
+    if (attachment.contentType !== "image/png") continue;
+    const match = attachment.name.match(/^(.+?)-(actual|expected|diff)$/);
+    if (!match) continue;
+    const baseName = match[1] as string;
+    const role = match[2] as string;
+    if (!images[baseName]) images[baseName] = { actual: "" };
+    const url = `/screenshots/${attachment.path}`;
+    if (role === "actual") images[baseName]!.actual = url;
+    else if (role === "expected") images[baseName]!.expect = url;
+    else if (role === "diff") images[baseName]!.diff = url;
+  }
+  // Only keep entries that have a diff — no diff means nothing to review
+  for (const key of Object.keys(images)) {
+    if (!images[key]?.diff) delete images[key];
+  }
+  return images;
 }
 
 function broadcastToBrowsers(msg: object): void {
@@ -115,7 +143,8 @@ function mapStatus(status: "passed" | "failed" | "skipped"): TestData["status"] 
 Bun.serve({
   port: 3000,
   routes: {
-    "/": async () => {
+    "/": (req, server) => {
+      if (server.upgrade(req)) return;
       const html = Bun.file("./index.html");
       return new Response(html, { headers: { "Content-Type": "text/html" } });
     },

@@ -1,295 +1,297 @@
 <script lang="ts">
-  import type { CreeveySuite, CreeveyTest, Images, ImagesViewMode } from '../types';
-  import './styles.css';
+  import type { CreeveySuite, CreeveyTest, ImagesViewMode } from '../types';
+  import { isTest } from '../types';
+  import {
+    openSuite,
+    checkSuite,
+    getTestByPath,
+    getTestPath,
+    getFailedTests,
+    getCheckedTests,
+    setSearchParams,
+    getTestPathFromSearch,
+    filterTests,
+    flattenSuite,
+    getSuiteByPath,
+    type CreeveyViewFilter,
+  } from './helpers';
+  import { getViewMode } from './viewMode';
+  import Sidebar from './components/Sidebar.svelte';
+  import ResultsPage from './components/ResultsPage.svelte';
+  import Toggle from './components/Toggle.svelte';
 
   interface Props {
-    initialState: {
-      tests: CreeveySuite;
-      isReport: boolean;
-      isUpdateMode: boolean;
-    };
+    initialTests: CreeveySuite;
+    isReport: boolean;
+    isUpdateMode: boolean;
     onApprove: (id: string, retry: number, image: string) => void;
     onApproveAll: () => void;
   }
 
-  let { initialState, onApprove, onApproveAll }: Props = $props();
-  
-  const { tests } = initialState;
+  let { initialTests, isReport, isUpdateMode, onApprove, onApproveAll }: Props = $props();
 
-  let openSuites = $state<Record<string, boolean>>({});
-  let selectedTest = $state<CreeveyTest | null>(null);
+  let tests = $state(initialTests);
+  let isRunning = $state(false);
+  let openedTestPath = $state<string[]>([]);
+  let filter = $state<CreeveyViewFilter>({ status: null, subStrings: [] });
+  let viewMode = $state<ImagesViewMode>(getViewMode());
+  let focusedPath = $state<string[] | null>([]);
+  let isDark = $state(localStorage.getItem('creevey_theme') !== 'light');
+
+  let openedTest = $derived(getTestByPath(tests, openedTestPath));
+  let failedTests = $derived(getFailedTests(tests));
   let retry = $state(0);
   let imageName = $state('');
-  let viewMode = $state<ImagesViewMode>('side-by-side');
-  let swapActive = $state(false);
-  
-  let testResults = $derived(selectedTest?.results?.[retry - 1] ?? null);
-  let currentImage = $derived(testResults?.images?.[imageName] ?? null);
+
+  let testResult = $derived(openedTest?.results?.[retry - 1] ?? null);
+  let currentImage = $derived(testResult?.images?.[imageName] ?? null);
   let canApprove = $derived(
-    selectedTest && testResults && currentImage &&
-    testResults.status !== 'success' &&
-    selectedTest.approved?.[imageName] !== retry - 1
+    Boolean(
+      openedTest?.results?.[retry - 1]?.images &&
+      openedTest.approved?.[imageName] !== retry - 1 &&
+      openedTest.results[retry - 1]?.status !== 'success',
+    ),
   );
 
-  function handleSelectTest(test: CreeveyTest) {
-    selectedTest = test;
-    const r = test.results?.length ?? 0;
-    retry = r;
-    const images = test.results?.[r - 1]?.images;
-    imageName = images ? Object.keys(images)[0] ?? '' : '';
-  }
-
-  function handleSuiteOpen(path: string[], opened: boolean) {
-    const key = path.join('/');
-    if (opened) openSuites[key] = true;
-    else delete openSuites[key];
-  }
-
-  function handleApprove() {
-    if (selectedTest && canApprove) {
-      onApprove(selectedTest.id, retry - 1, imageName);
-    }
-  }
-
-  function handleSwapToggle() {
-    swapActive = !swapActive;
-  }
-
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === ' ' && viewMode === 'swap') {
-      e.preventDefault();
-      handleSwapToggle();
-    }
-  }
+  let suiteList = $derived(flattenSuite(filterTests(tests, filter)));
 
   $effect(() => {
-    if (testResults?.images) {
-      const keys = Object.keys(testResults.images);
-      if (keys.length > 0 && !keys.includes(imageName)) {
+    if (openedTest) {
+      const r = openedTest.results?.length ?? 0;
+      retry = r;
+      const result = openedTest.results?.[r - 1];
+      imageName = result?.images ? Object.keys(result.images)[0] ?? '' : '';
+    }
+  });
+
+  $effect(() => {
+    if (openedTestPath.length > 0 && !openedTest) {
+      openedTestPath = [];
+    }
+  });
+
+  $effect(() => {
+    localStorage.setItem('creevey_theme', isDark ? 'dark' : 'light');
+    document.documentElement.classList.toggle('light', !isDark);
+    document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+  });
+
+  $effect(() => {
+    const handlePopState = (event: PopStateEvent): void => {
+      const state = event.state as { testPath?: string[] } | null;
+      if (state?.testPath && Array.isArray(state.testPath)) {
+        openSuite(tests, state.testPath, true);
+        openedTestPath = state.testPath;
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    const testPath = getTestPathFromSearch();
+    if (testPath.length > 0) {
+      openSuite(tests, testPath, true);
+      openedTestPath = testPath;
+    }
+    return () => window.removeEventListener('popstate', handlePopState);
+  });
+
+  $effect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (focusedPath === null) return;
+      if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
+
+      switch (e.code) {
+        case 'ArrowDown': {
+          e.preventDefault();
+          const idx = focusedPath.length === 0 ? -1 : getFocusedIndex(focusedPath);
+          if (idx < suiteList.length - 1) {
+            const next = suiteList[idx + 1];
+            const nextPath = isTest(next.suite) ? getTestPath(next.suite) : next.suite.path;
+            focusedPath = nextPath;
+          }
+          break;
+        }
+        case 'ArrowUp': {
+          e.preventDefault();
+          const idx = focusedPath.length === 0 ? 0 : getFocusedIndex(focusedPath);
+          if (idx > 0) {
+            const prev = suiteList[idx - 1];
+            const prevPath = isTest(prev.suite) ? getTestPath(prev.suite) : prev.suite.path;
+            focusedPath = prevPath;
+          } else {
+            focusedPath = [];
+          }
+          break;
+        }
+        case 'ArrowRight': {
+          if (focusedPath.length === 0) return;
+          const focused = getSuiteByPath(tests, focusedPath);
+          if (focused && !isTest(focused)) {
+            openSuite(tests, focused.path, true);
+          }
+          break;
+        }
+        case 'ArrowLeft': {
+          if (focusedPath.length === 0) return;
+          const focused = getSuiteByPath(tests, focusedPath);
+          if (!focused) return;
+          if (!isTest(focused) && focused.opened) {
+            openSuite(tests, focused.path, false);
+          } else {
+            const parentPath = isTest(focused) ? getTestPath(focused) : focused.path;
+            focusedPath = parentPath.slice(0, -1);
+          }
+          break;
+        }
+        case 'Enter': {
+          if (focusedPath.length === 0) return;
+          const focused = getSuiteByPath(tests, focusedPath);
+          if (!focused) return;
+          if (isTest(focused) && focused.results?.length) {
+            handleOpenTest(focused);
+          } else if (!isTest(focused)) {
+            openSuite(tests, focused.path, !focused.opened);
+          }
+          break;
+        }
+        case 'Space': {
+          if (e.altKey) return;
+          if (focusedPath.length === 0) return;
+          e.preventDefault();
+          const focused = getSuiteByPath(tests, focusedPath);
+          if (!focused) return;
+          const path = isTest(focused) ? getTestPath(focused) : focused.path;
+          checkSuite(tests, path, !focused.checked);
+          break;
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  });
+
+  function getFocusedIndex(path: string[]): number {
+    return suiteList.findIndex((x) => {
+      const xPath = isTest(x.suite) ? getTestPath(x.suite) : x.suite.path;
+      return path.length === xPath.length && path.every((p, i) => p === xPath[i]);
+    });
+  }
+
+  function handleOpenTest(test: CreeveyTest): void {
+    const testPath = getTestPath(test);
+    setSearchParams(testPath);
+    focusedPath = testPath;
+    openSuite(tests, testPath, true);
+    openedTestPath = testPath;
+  }
+
+  function handleSuiteOpen(path: string[], opened: boolean): void {
+    openSuite(tests, path, opened);
+  }
+
+  function handleSuiteToggle(path: string[], checked: boolean): void {
+    checkSuite(tests, path, checked);
+  }
+
+  function handleGoToNextFailed(): void {
+    if (failedTests.length === 0) return;
+    const currentIndex = failedTests.findIndex((t) => t.id === openedTest?.id);
+    const failedImages = Object.entries(testResult?.images ?? {})
+      .filter(([name]) =>
+        Boolean(
+          testResult?.images?.[name]?.error != null &&
+          openedTest?.approved?.[name] !== retry - 1 &&
+          testResult?.status !== 'success',
+        ),
+      )
+      .map(([name]) => name);
+
+    if (
+      failedImages.length > 1 &&
+      (failedTests.length === 1 || failedImages.indexOf(imageName) < failedImages.length - 1)
+    ) {
+      imageName = failedImages[failedImages.indexOf(imageName) + 1] ?? failedImages[0];
+    } else {
+      const nextFailed = failedTests[currentIndex + 1] ?? failedTests[0];
+      handleOpenTest(nextFailed);
+    }
+  }
+
+  function handleImageApprove(): void {
+    if (!openedTest?.id || !canApprove) return;
+    onApprove(openedTest.id, retry - 1, imageName);
+  }
+
+  function handleApproveAndGoNext(): void {
+    handleImageApprove();
+    handleGoToNextFailed();
+  }
+
+  function handleStart(): void {}
+  function handleStop(): void {}
+
+  function handleImageChange(name: string): void {
+    imageName = name;
+  }
+
+  function handleRetryChange(r: number): void {
+    retry = r;
+    const result = openedTest?.results?.[r - 1];
+    if (result?.images) {
+      const keys = Object.keys(result.images);
+      if (!keys.includes(imageName)) {
         imageName = keys[0] ?? '';
       }
     }
-  });
+  }
+
+  function handleViewModeChange(mode: ImagesViewMode): void {
+    viewMode = mode;
+  }
+
+  function handleThemeChange(dark: boolean): void {
+    isDark = dark;
+  }
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-<div class="app">
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <h1>Creevey Reporter</h1>
-      <div class="tests-status">
-        <div class="status-item">
-          <span class="status-dot success"></span>
-          <span>{countByStatus(tests, 'success')}</span>
-        </div>
-        <div class="status-item">
-          <span class="status-dot failed"></span>
-          <span>{countByStatus(tests, 'failed')}</span>
-        </div>
-        <div class="status-item">
-          <span class="status-dot pending"></span>
-          <span>{countByStatus(tests, 'pending')}</span>
-        </div>
-      </div>
-    </div>
-    <div class="test-list">
-      {#each Object.values(tests.children).filter(Boolean).filter((c) => hasScreenshots(c as CreeveySuite | CreeveyTest)) as child}
-        {@render TestItem(
-          child as CreeveySuite | CreeveyTest,
-          0,
-          selectedTest?.id,
-          handleSelectTest,
-          handleSuiteOpen
-        )}
-      {/each}
-    </div>
-  </div>
-  <div class="main-content">
-    {#if selectedTest && testResults}
-      <div class="header">
-        <div>
-          <h2 class="header-title">{selectedTest.testName ?? selectedTest.storyId}</h2>
-          {#if testResults.images && Object.keys(testResults.images).length > 1}
-            <div class="image-tabs">
-              {#each Object.keys(testResults.images) as name}
-                <button
-                  class="image-tab {name === imageName ? 'active' : ''}"
-                  onclick={() => imageName = name}
-                >
-                  {name}
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </div>
-        <div class="view-modes">
-          {#each (['side-by-side', 'swap', 'slide', 'blend'] as ImagesViewMode[]) as mode}
-            <button
-              class="view-mode-btn {viewMode === mode ? 'active' : ''}"
-              onclick={() => viewMode = mode}
-            >
-              {mode}
-            </button>
-          {/each}
-        </div>
-      </div>
-      <div class="content">
-        {@render ImageViewer(currentImage, viewMode, swapActive, handleSwapToggle)}
-      </div>
-      <div class="footer">
-        <span class="nav-hint">Use arrow keys to navigate, Enter to approve</span>
-        <button class="approve-btn" disabled={!canApprove} onclick={handleApprove}>
-          {canApprove ? 'Approve' : 'Approved'}
-        </button>
-      </div>
+<div class="flex h-screen relative">
+  <Sidebar
+    {tests}
+    selectedId={openedTest?.id}
+    {focusedPath}
+    {isReport}
+    {isRunning}
+    {isUpdateMode}
+    {filter}
+    {canApprove}
+    onFilterChange={(f) => filter = f}
+    onSelect={handleOpenTest}
+    onOpen={handleSuiteOpen}
+    onToggle={handleSuiteToggle}
+    onStart={handleStart}
+    onStop={handleStop}
+    onApprove={handleApproveAndGoNext}
+    onNext={handleGoToNextFailed}
+    {onApproveAll}
+  />
+  <div class="flex-1 flex flex-col overflow-hidden min-w-0">
+    {#if openedTest && testResult}
+      <ResultsPage
+        test={openedTest}
+        {retry}
+        {imageName}
+        {viewMode}
+        {canApprove}
+        onImageChange={handleImageChange}
+        onRetryChange={handleRetryChange}
+        onViewModeChange={handleViewModeChange}
+      />
     {:else}
-      <div class="empty-state">Select a test to view results</div>
+      <div class="flex-1 flex items-center justify-center text-fg-muted text-base">
+        Select a test to view results
+      </div>
     {/if}
+  </div>
+  <div class="absolute top-3 right-3 z-10">
+    <Toggle checked={isDark} onchange={handleThemeChange} />
   </div>
 </div>
-
-{#snippet TestItem(item: CreeveySuite | CreeveyTest, level: number, selectedId: string | undefined, onSelect: (test: CreeveyTest) => void, onOpen: (path: string[], opened: boolean) => void)}
-  {@const isTestItem = isTest(item)}
-  {@const suiteItem = item as CreeveySuite}
-  {@const hasChildren = !isTestItem && Object.keys(suiteItem.children).length > 0}
-  {@const isOpen = !isTestItem && Boolean(openSuites[suiteItem.path.join('/')])}
-  <div
-    class="test-item {selectedId && isTestItem && (item as CreeveyTest).id === selectedId ? 'selected' : ''}"
-    style="padding-left: {16 + level * 16}px"
-    onclick={() => isTestItem ? onSelect(item as CreeveyTest) : onOpen(suiteItem.path, !isOpen)}
-    role="button"
-    tabindex="0"
-    onkeydown={(e) => { if (e.key === 'Enter') { isTestItem ? onSelect(item as CreeveyTest) : onOpen(suiteItem.path, !isOpen); }}}
-  >
-    {#if hasChildren}
-      <span class="chevron {isOpen ? 'expanded' : ''}">▶</span>
-    {/if}
-    <span class="title">
-      {isTestItem ? (item as CreeveyTest).testName ?? (item as CreeveyTest).storyId : suiteItem.path[suiteItem.path.length - 1] ?? 'Tests'}
-    </span>
-    {#if item.status}
-      <span class="status-icon status-dot {item.status}"></span>
-    {/if}
-  </div>
-  {#if isOpen}
-    {#each Object.values(suiteItem.children).filter(Boolean).filter((c) => hasScreenshots(c as CreeveySuite | CreeveyTest)) as child}
-      {@render TestItem(child as CreeveySuite | CreeveyTest, level + 1, selectedId, onSelect, onOpen)}
-    {/each}
-  {/if}
-{/snippet}
-
-{#snippet ImageViewer(image: Images | null | undefined, viewMode: ImagesViewMode, swapActive: boolean, onSwapToggle: () => void)}
-  {#if !image}
-    <div class="empty-state">No image to display</div>
-  {:else if viewMode === 'side-by-side'}
-    <div class="image-container">
-      {#if image.expect}
-        <div class="image-panel">
-          <h3>Expected</h3>
-          <img src={image.expect} alt="Expected" />
-        </div>
-      {/if}
-      {#if image.actual}
-        <div class="image-panel">
-          <h3>Actual</h3>
-          <img src={image.actual} alt="Actual" />
-        </div>
-      {/if}
-      {#if image.diff}
-        <div class="image-panel">
-          <h3>Diff</h3>
-          <img src={image.diff} alt="Diff" />
-        </div>
-      {/if}
-    </div>
-  {:else if viewMode === 'swap'}
-    <div class="image-container">
-      <div class="image-panel" style="flex: 2">
-        <h3>Swap View (click or press Space)</h3>
-        <div 
-          style="position: relative; flex: 1; cursor: pointer;" 
-          onclick={onSwapToggle}
-          role="button"
-          tabindex="0"
-          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSwapToggle(); }}
-        >
-          {#if image.expect}
-            <img 
-              src={image.expect} 
-              alt="Expected" 
-              style="position: absolute; top: 0; left: 0; width: 100%; opacity: {swapActive ? 0.5 : 1};" 
-            />
-          {/if}
-          {#if image.actual}
-            <img 
-              src={image.actual} 
-              alt="Actual" 
-              style="position: absolute; top: 0; left: 0; width: 100%; opacity: {swapActive ? 1 : 0.5};" 
-            />
-          {/if}
-        </div>
-      </div>
-    </div>
-  {:else if viewMode === 'blend'}
-    <div class="image-container">
-      <div class="image-panel" style="flex: 2">
-        <h3>Blend (Difference)</h3>
-        <div style="position: relative; flex: 1">
-          {#if image.expect}
-            <img src={image.expect} alt="Expected" style="position: absolute; top: 0; left: 0; width: 100%;" />
-          {/if}
-          {#if image.actual}
-            <img src={image.actual} alt="Actual" style="position: absolute; top: 0; left: 0; width: 100%; mix-blend-mode: difference;" />
-          {/if}
-        </div>
-      </div>
-    </div>
-  {:else}
-    <div class="image-container">
-      {#if image.actual}
-        <div class="image-panel" style="flex: 2">
-          <h3>Actual</h3>
-          <img src={image.actual} alt="Actual" />
-        </div>
-      {/if}
-    </div>
-  {/if}
-{/snippet}
-
-<script lang="ts" module>
-  function isTest(x: unknown): x is CreeveyTest {
-    return (
-      x !== null &&
-      typeof x === 'object' &&
-      'id' in x &&
-      'storyId' in x
-    );
-  }
-
-  function hasScreenshots(item: CreeveySuite | CreeveyTest): boolean {
-    if (isTest(item)) {
-      return item.results?.some(
-        (r) => r.images && Object.keys(r.images).length > 0
-      ) ?? false;
-    }
-    return Object.values(item.children)
-      .filter(Boolean)
-      .some((child) => hasScreenshots(child as CreeveySuite | CreeveyTest));
-  }
-
-  function countByStatus(suite: CreeveySuite, status: string): number {
-    let count = 0;
-    const stack: (CreeveySuite | CreeveyTest)[] = Object.values(suite.children).filter(Boolean) as (CreeveySuite | CreeveyTest)[];
-    while (stack.length > 0) {
-      const item = stack.pop();
-      if (!item) continue;
-      if (isTest(item)) {
-        if (item.status === status) count++;
-      } else {
-        stack.push(...Object.values(item.children).filter(Boolean) as (CreeveySuite | CreeveyTest)[]);
-      }
-    }
-    return count;
-  }
-</script>

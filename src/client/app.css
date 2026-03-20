@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: var(--c-surface);
+  --color-surface-alt: var(--c-surface-alt);
+  --color-surface-input: var(--c-surface-input);
+  --color-surface-hover: var(--c-surface-hover);
+  --color-surface-selected: var(--c-surface-selected);
+  --color-surface-panel: var(--c-surface-panel);
+  --color-surface-panel-hd: var(--c-surface-panel-hd);
+  --color-fg: var(--c-fg);
+  --color-fg-muted: var(--c-fg-muted);
+  --color-fg-bright: var(--c-fg-bright);
+  --color-edge: var(--c-edge);
+  --color-accent: var(--c-accent);
+  --color-success: var(--c-success);
+  --color-error: var(--c-error);
+  --color-warning: var(--c-warning);
+  --color-info: var(--c-info);
+
+  --animate-pulse-dot: pulse-dot 1s infinite;
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+}
+
+/* Dark theme (default) */
+:root {
+  --c-surface: #1e1e1e;
+  --c-surface-alt: #252526;
+  --c-surface-input: #3c3c3c;
+  --c-surface-hover: #2a2d2e;
+  --c-surface-selected: #37373d;
+  --c-surface-panel: #2d2d2d;
+  --c-surface-panel-hd: #3c3c3c;
+  --c-fg: #d4d4d4;
+  --c-fg-muted: #808080;
+  --c-fg-bright: #ffffff;
+  --c-edge: #3c3c3c;
+  --c-accent: #007acc;
+  --c-success: #4caf50;
+  --c-error: #f44336;
+  --c-warning: #ff9800;
+  --c-info: #2196f3;
+}
+
+/* Light theme */
+.light {
+  --c-surface: #ffffff;
+  --c-surface-alt: #f7f7f7;
+  --c-surface-input: #ffffff;
+  --c-surface-hover: #e8e8e8;
+  --c-surface-selected: #d0d0d0;
+  --c-surface-panel: #f5f5f5;
+  --c-surface-panel-hd: #e0e0e0;
+  --c-fg: #333333;
+  --c-fg-muted: #666666;
+  --c-fg-bright: #111111;
+  --c-edge: #d4d4d4;
+  --c-accent: #0066b8;
+  --c-success: #2e7d32;
+  --c-error: #c62828;
+  --c-warning: #ef6c00;
+  --c-info: #1565c0;
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-fg antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+  }
+}
+
+/* === Custom styles Tailwind cannot express === */
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--c-edge);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--c-fg-muted);
+}
+
+/* Slide view range input */
+.slide-input {
+  position: absolute;
+  cursor: ew-resize;
+  appearance: none;
+  background: none;
+  box-shadow: none;
+  outline: none;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  z-index: 1;
+}
+.slide-input::-webkit-slider-runnable-track { height: 100%; }
+.slide-input::-webkit-slider-thumb {
+  box-shadow: 0 0 0 0.5px #888;
+  height: 100%;
+  width: 0;
+  appearance: none;
+}
+.slide-input::-moz-focus-outer { border: 0; }
+.slide-input::-moz-range-track { height: 0; }
+.slide-input::-moz-range-thumb {
+  border: none;
+  box-shadow: 0 0 0 0.5px #888;
+  height: 100%;
+  width: 0;
+}
+
+.slide-input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-dot {
+    animation: none;
+  }
+}

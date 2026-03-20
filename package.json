@@ -15,7 +15,10 @@
     "example": "cd examples/playwright && bunx playwright test"
   },
   "dependencies": {
-    "svelte": "^5.54.0"
+    "@tailwindcss/postcss": "^4.2.2",
+    "postcss": "^8.5.8",
+    "svelte": "^5.54.0",
+    "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

@@ -1,7 +1,7 @@
 import { mount } from "svelte";
-import { provideCreeveyContext } from "./client/CreeveyContext.ts";
 import App from "./client/App.svelte";
 import type { CreeveySuite, CreeveyTest, TestData } from "./types";
+import { calcStatus } from "./client/helpers";
 
 interface InitialState {
   tests: CreeveySuite;
@@ -53,7 +53,11 @@ function treeifyTests(testsById: Record<string, TestData>): CreeveySuite {
           children: {},
         };
       }
-      return suite.children[token] as CreeveySuite;
+      const subSuite = suite.children[token] as CreeveySuite;
+      subSuite.status = calcStatus(subSuite.status, test.status);
+      suite.status = calcStatus(suite.status, subSuite.status);
+      if (!test.skip) subSuite.skip = false;
+      return subSuite;
     }, rootSuite);
 
     lastSuite.children[browserName] = {
@@ -79,12 +83,6 @@ const handleApproveAll = async (): Promise<void> => {
   window.location.reload();
 };
 
-provideCreeveyContext({
-  isReport: true,
-  isUpdateMode: false,
-  onApproveAll: handleApproveAll,
-});
-
 const initialState = await loadReportData();
 
 const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -102,7 +100,9 @@ const root = document.getElementById("root")!;
 mount(App, {
   target: root,
   props: {
-    initialState,
+    initialTests: initialState.tests,
+    isReport: initialState.isReport,
+    isUpdateMode: initialState.isUpdateMode,
     onApprove: handleApprove,
     onApproveAll: handleApproveAll,
   },

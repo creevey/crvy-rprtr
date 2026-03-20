@@ -34,7 +34,7 @@ export class CreeveyReporter implements Reporter {
   constructor(options: CreeveyReporterOptions = {}) {
     this.serverUrl = options.serverUrl ?? "ws://localhost:3000";
     this.screenshotDir = options.screenshotDir ?? "./screenshots";
-    this.workerIndex = parseInt(process.env.TEST_WORKER_INDEX ?? "0", 10);
+    this.workerIndex = parseInt(process.env.TEST_WORKER_INDEX ?? "0", 10) || 0;
     this.offlineReportPath =
       options.offlineReportPath ?? `./creevey-offline-report-${this.workerIndex}.json`;
   }
@@ -50,6 +50,10 @@ export class CreeveyReporter implements Reporter {
       this.ws = new WebSocket(this.serverUrl);
       this.ws.onopen = () => {
         console.log("[CreeveyReporter] Connected to Creevey server");
+        if (this.isOfflineMode) {
+          this.offlineEvents = [];
+          this.isOfflineMode = false;
+        }
         for (const msg of this.queue) this.ws!.send(msg);
         this.queue = [];
       };
@@ -201,11 +205,11 @@ export class CreeveyReporter implements Reporter {
 
   private send(msg: object): void {
     const payload = JSON.stringify(msg);
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(payload);
-    } else if (this.isOfflineMode) {
+    if (this.isOfflineMode) {
       const msgObj = msg as { type?: string; data?: unknown };
       this.offlineEvents.push({ type: msgObj.type ?? "unknown", data: msgObj.data });
+    } else if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(payload);
     } else {
       this.queue.push(payload);
     }

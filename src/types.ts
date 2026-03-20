@@ -124,7 +124,7 @@ export interface CreeveyViewFilter {
 
 export interface OfflineEvent {
   type: "test-begin" | "test-end" | "run-end";
-  data: unknown;
+  data: TestBeginMessage["data"] | TestEndMessage["data"] | RunEndMessage["data"];
   timestamp: number;
   workerIndex: number;
 }

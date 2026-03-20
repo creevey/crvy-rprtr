@@ -86,7 +86,7 @@
   {#if hasChildren}
     <span class={cn('text-[9px] transition-transform text-fg-muted shrink-0 w-3 text-center', isOpen && 'rotate-90')} aria-hidden="true">▶</span>
   {/if}
-  <span class="flex-1 text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">
+  <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis">
     {itemIsTest ? testItem.testName ?? testItem.storyId : suiteItem.path[suiteItem.path.length - 1] ?? 'Tests'}
   </span>
   {#if item.status}

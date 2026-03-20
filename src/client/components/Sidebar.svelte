@@ -73,14 +73,14 @@
   });
 </script>
 
-<div class="w-[300px] min-w-[300px] bg-surface-alt border-r border-edge flex flex-col overflow-hidden">
+<div class="w-[300px] min-w-[300px] max-md:w-full max-md:min-w-0 max-md:max-h-[40vh] max-md:border-b max-md:border-r-0 bg-surface-alt border-r border-edge flex flex-col overflow-hidden">
   <!-- Header -->
   <div class="p-4 border-b border-edge bg-surface-alt shrink-0">
     <div class="flex justify-between items-start">
       <div>
         <h1 class="m-0 mb-2 text-base font-normal text-fg-bright">Creevey Reporter</h1>
         {#if isUpdateMode}
-          <div class="text-[11px] mb-2 px-2 py-1 text-success bg-success/10 rounded-sm">
+          <div class="text-xs mb-2 px-2 py-1 text-success bg-success/10 rounded-sm">
             Review and approve screenshots
           </div>
         {/if}
@@ -92,7 +92,7 @@
           ] as { key, count }}
             <button
               class={cn(
-                'flex items-center gap-1 px-1.5 py-0.5 bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1',
+                'flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1',
                 filter.status === key && 'border-accent! bg-accent/15',
               )}
               onclick={() => handleClickByStatus(key)}
@@ -104,7 +104,7 @@
           {#if status.approvedCount > 0}
             <button
               class={cn(
-                'flex items-center gap-1 px-1.5 py-0.5 bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1',
+                'flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1',
                 filter.status === 'approved' && 'border-accent! bg-accent/15',
               )}
               onclick={() => handleClickByStatus('approved')}
@@ -135,7 +135,7 @@
     </div>
     <input
       type="text"
-      class="w-full px-2.5 py-1.5 bg-surface-input border border-edge rounded text-fg text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors focus:border-accent placeholder:text-fg-muted"
+      class="w-full px-2.5 py-1.5 bg-surface-input border border-edge rounded text-fg text-ui outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors focus:border-accent placeholder:text-fg-muted"
       placeholder="Filter tests\u2026 (status:failed)"
       aria-label="Filter tests"
       autocomplete="off"
@@ -145,7 +145,7 @@
   </div>
 
   <!-- Tree -->
-  <div class="flex-1 overflow-y-auto py-1" role="tree">
+  <div class="flex-1 overflow-y-auto overscroll-y-contain py-1" role="tree">
     {#each visibleChildren as child}
       <TreeItem
         item={child as CreeveySuite | CreeveyTest}
@@ -159,7 +159,7 @@
       />
     {/each}
     {#if visibleChildren.length === 0}
-      <div class="py-6 px-4 text-center text-fg-muted text-[13px]">No tests match filter</div>
+      <div class="py-6 px-4 text-center text-fg-muted text-ui">No tests match filter</div>
     {/if}
   </div>
 
@@ -167,7 +167,7 @@
   <div class="py-3 px-4 border-t border-edge bg-surface-alt flex gap-2 shrink-0">
     {#if isAlt}
       <button
-        class="flex-1 px-4 py-1.5 border border-edge rounded text-[13px] cursor-pointer transition-colors text-center bg-transparent text-fg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-accent"
+        class="flex-1 px-4 py-1.5 border border-edge rounded text-ui cursor-pointer transition-colors text-center bg-transparent text-fg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-accent"
         disabled={!canApprove}
         onclick={onNext}
       >
@@ -175,7 +175,7 @@
       </button>
     {:else}
       <button
-        class="flex-1 px-4 py-1.5 border border-success rounded text-[13px] cursor-pointer transition-colors text-center bg-success text-white font-semibold hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-accent"
+        class="flex-1 px-4 py-1.5 border border-success rounded text-ui cursor-pointer transition-colors text-center bg-success text-white font-semibold hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-accent"
         disabled={!canApprove}
         onclick={onApprove}
       >
@@ -183,8 +183,8 @@
       </button>
     {/if}
     <button
-      class="flex-1 px-4 py-1.5 border border-edge rounded text-[13px] cursor-pointer transition-colors text-center bg-transparent text-fg hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-accent"
-      onclick={onApproveAll}
+      class="flex-1 px-4 py-1.5 border border-edge rounded text-ui cursor-pointer transition-colors text-center bg-transparent text-fg hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-accent"
+      onclick={() => { if (confirm('Approve all failed screenshots?')) onApproveAll(); }}
     >
       Approve All
     </button>

@@ -30,6 +30,7 @@
 
   let { initialTests, isReport, isUpdateMode, onApprove, onApproveAll }: Props = $props();
 
+  // svelte-ignore state_referenced_locally — intentionally capture initial value for local mutation
   let tests = $state(initialTests);
   let isRunning = $state(false);
   let openedTestPath = $state<string[]>([]);
@@ -253,7 +254,7 @@
   }
 </script>
 
-<div class="flex h-screen relative">
+<div class="flex h-dvh relative max-md:flex-col overflow-hidden">
   <Sidebar
     {tests}
     selectedId={openedTest?.id}
@@ -291,7 +292,7 @@
       </div>
     {/if}
   </div>
-  <div class="absolute top-3 right-3 z-10">
+  <div class="absolute top-3 right-3 max-md:top-1 max-md:right-1 z-10">
     <Toggle checked={isDark} onchange={handleThemeChange} />
   </div>
 </div>

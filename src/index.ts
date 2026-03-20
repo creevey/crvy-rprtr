@@ -83,6 +83,9 @@ const handleApproveAll = async (): Promise<void> => {
   window.location.reload();
 };
 
+const root = document.getElementById("root")!;
+root.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#808080;font-size:14px">Loading\u2026</div>`;
+
 const initialState = await loadReportData();
 
 const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -96,7 +99,7 @@ ws.onmessage = (event) => {
   }
 };
 
-const root = document.getElementById("root")!;
+root.innerHTML = "";
 mount(App, {
   target: root,
   props: {

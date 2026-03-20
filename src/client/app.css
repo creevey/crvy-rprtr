@@ -18,6 +18,10 @@
   --color-warning: var(--c-warning);
   --color-info: var(--c-info);
 
+  /* UI text size: 13px — between xs (12) and sm (14) */
+  --text-ui: 0.8125rem;
+  --text-ui--line-height: 1.4;
+
   --animate-pulse-dot: pulse-dot 1s infinite;
 
   @keyframes pulse-dot {
@@ -36,7 +40,7 @@
   --c-surface-panel: #2d2d2d;
   --c-surface-panel-hd: #3c3c3c;
   --c-fg: #d4d4d4;
-  --c-fg-muted: #808080;
+  --c-fg-muted: #999;
   --c-fg-bright: #ffffff;
   --c-edge: #3c3c3c;
   --c-accent: #007acc;
@@ -71,6 +75,8 @@
     @apply bg-surface text-fg antialiased;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
+    overflow-x: hidden;
+    touch-action: manipulation;
   }
 }
 
@@ -106,7 +112,7 @@
 }
 .slide-input::-webkit-slider-runnable-track { height: 100%; }
 .slide-input::-webkit-slider-thumb {
-  box-shadow: 0 0 0 0.5px #888;
+  box-shadow: 0 0 0 0.5px var(--c-fg-muted);
   height: 100%;
   width: 0;
   appearance: none;
@@ -115,7 +121,7 @@
 .slide-input::-moz-range-track { height: 0; }
 .slide-input::-moz-range-thumb {
   border: none;
-  box-shadow: 0 0 0 0.5px #888;
+  box-shadow: 0 0 0 0.5px var(--c-fg-muted);
   height: 100%;
   width: 0;
 }

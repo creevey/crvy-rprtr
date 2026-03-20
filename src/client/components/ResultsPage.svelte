@@ -64,9 +64,9 @@
 
 <div class="flex flex-col h-full">
   <!-- Header -->
-  <div class="py-3 px-5 bg-surface-alt border-b border-edge flex items-start justify-between gap-4 shrink-0">
+  <div class="py-3 px-5 max-md:px-3 bg-surface-alt border-b border-edge flex max-md:flex-col items-start justify-between gap-2 md:gap-4 shrink-0">
     <div class="min-w-0">
-      <h2 class="text-[15px] text-fg-bright m-0 mb-1 font-medium whitespace-nowrap overflow-hidden text-ellipsis">
+      <h2 class="text-base text-fg-bright m-0 mb-1 font-medium whitespace-nowrap overflow-hidden text-ellipsis text-pretty">
         {test.testName ?? test.storyId}
       </h2>
       {#if result?.error}
@@ -79,7 +79,7 @@
           {#each imageNames as name}
             <button
               class={cn(
-                'px-2.5 py-[3px] bg-surface-input border rounded-sm text-fg text-xs cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-accent',
+                'px-2.5 py-1 bg-surface-input border rounded-sm text-fg text-xs cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-accent',
                 name === imageName ? 'bg-accent border-accent text-white' : 'border-edge',
                 imagesWithError.includes(name) && 'border-error',
               )}
@@ -96,7 +96,7 @@
         {#each viewModes as mode, i}
           <button
             class={cn(
-              'px-2.5 py-1 bg-surface-input border border-edge text-fg text-[11px] cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-accent',
+              'px-2.5 py-1 bg-surface-input border border-edge text-fg text-xs cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-accent',
               i === 0 && 'rounded-l',
               i === viewModes.length - 1 && 'rounded-r',
               viewMode === mode && 'bg-accent border-accent text-white',
@@ -111,27 +111,27 @@
   </div>
 
   <!-- Body -->
-  <div class="flex-1 overflow-auto p-4 min-h-0">
+  <div class="flex-1 overflow-auto p-4 max-md:p-2 min-h-0">
     {#if !image}
       <div class="flex-1 flex items-center justify-center text-fg-muted text-base">No image to display</div>
     {:else if viewMode === 'side-by-side' || !hasDiffAndExpect}
-      <div class="flex flex-row gap-3 min-h-full">
+      <div class="flex flex-col md:flex-row gap-3 min-h-full">
         {#if image.expect}
           <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0">
             <h3 class="m-0 px-3 py-2 text-xs font-medium bg-surface-panel-hd text-fg-bright uppercase tracking-wider">Expected</h3>
-            <img src={image.expect} alt="Expected" class="w-full object-contain block" />
+            <img src={image.expect} alt="Expected" class="w-full object-contain block" loading="lazy" />
           </div>
         {/if}
         {#if image.actual}
           <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0">
             <h3 class="m-0 px-3 py-2 text-xs font-medium bg-surface-panel-hd text-fg-bright uppercase tracking-wider">Actual</h3>
-            <img src={image.actual} alt="Actual" class="w-full object-contain block" />
+            <img src={image.actual} alt="Actual" class="w-full object-contain block" loading="lazy" />
           </div>
         {/if}
         {#if image.diff}
           <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0">
             <h3 class="m-0 px-3 py-2 text-xs font-medium bg-surface-panel-hd text-fg-bright uppercase tracking-wider">Diff</h3>
-            <img src={image.diff} alt="Diff" class="w-full object-contain block" />
+            <img src={image.diff} alt="Diff" class="w-full object-contain block" loading="lazy" />
           </div>
         {/if}
       </div>
@@ -174,7 +174,7 @@
         {:else if image.actual}
           <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0">
             <h3 class="m-0 px-3 py-2 text-xs font-medium bg-surface-panel-hd text-fg-bright uppercase tracking-wider">Actual</h3>
-            <img src={image.actual} alt="Actual" class="w-full object-contain block" />
+            <img src={image.actual} alt="Actual" class="w-full object-contain block" loading="lazy" />
           </div>
         {/if}
       </div>

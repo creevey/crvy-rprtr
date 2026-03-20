@@ -6,7 +6,7 @@ import type {
   TestResult,
   FullResult,
 } from "@playwright/test/reporter";
-import { mkdir, copyFile } from "fs/promises";
+import { mkdir, copyFile, writeFile } from "fs/promises";
 import { join } from "path";
 
 export interface CreeveyReporterOptions {
@@ -170,7 +170,7 @@ export class CreeveyReporter implements Reporter {
         })),
       };
 
-      await Bun.write(this.offlineReportPath, JSON.stringify(report, null, 2));
+      await writeFile(this.offlineReportPath, JSON.stringify(report, null, 2));
       console.log(`[CreeveyReporter] Wrote offline report: ${this.offlineReportPath}`);
     } catch (e) {
       console.error("[CreeveyReporter] Failed to write offline report:", e);

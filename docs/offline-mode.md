@@ -30,6 +30,12 @@ Upload these files as CI artifacts:
 - `screenshots/` - all screenshots
 - `creevey-offline-report-*.json` - event data for each worker
 
+## Limitations
+
+- Offline events are only written to file when `onEnd()` is called
+- If WebSocket reconnects after being offline, queued events stay in memory and are NOT sent to the server
+- For matrix CI, each worker writes its own offline report file
+
 ## Environment Variables
 
 | Variable | Description | Default |

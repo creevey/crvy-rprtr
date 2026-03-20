@@ -1,5 +1,4 @@
 import { defineConfig, devices } from "@playwright/test";
-import { CreeveyReporter } from "../src/reporter";
 
 export default defineConfig({
   testDir: "./tests",

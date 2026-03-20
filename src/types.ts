@@ -121,3 +121,17 @@ export interface CreeveyViewFilter {
   status: TestStatus | null;
   subStrings: string[];
 }
+
+export interface OfflineEvent {
+  type: "test-begin" | "test-end" | "run-end";
+  data: unknown;
+  timestamp: number;
+  workerIndex: number;
+}
+
+export interface OfflineReport {
+  version: number;
+  generatedAt: string;
+  workers: number;
+  events: OfflineEvent[];
+}

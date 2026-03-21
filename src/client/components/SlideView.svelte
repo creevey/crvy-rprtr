@@ -53,7 +53,7 @@
 </script>
 
 {#if loaded}
-  <div class="relative flex w-full">
+  <div class="relative flex w-fit">
     <input
       class="slide-input"
       type="range"

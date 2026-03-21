@@ -15,9 +15,9 @@
     onchange={() => onchange(!checked)}
     class="opacity-0 w-0 h-0 absolute"
   />
-  <span class="absolute inset-0 bg-surface-input rounded-full transition-colors">
+  <span class="absolute inset-0 bg-surface-input border border-edge rounded-full transition-colors">
     <span
-      class="absolute top-0.5 left-0.5 size-5 flex items-center justify-center bg-fg-muted rounded-full transition-transform {checked ? 'translate-x-6' : ''}"
+      class="absolute top-0.5 left-0.5 size-5 flex items-center justify-center bg-fg rounded-full transition-transform {checked ? 'translate-x-6' : ''}"
     >
       {#if checked}
         <svg class="size-3 text-surface" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

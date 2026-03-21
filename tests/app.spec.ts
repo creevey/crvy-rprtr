@@ -21,8 +21,8 @@ test.describe("Creevey Reporter API", () => {
     expect(data).toHaveProperty("browsers");
   });
 
-  test("styles.css is served", async ({ request }) => {
-    const response = await request.get("http://localhost:3000/src/client/styles.css");
+  test("app.css is served", async ({ request }) => {
+    const response = await request.get("http://localhost:3000/src/client/app.css");
     expect(response.status()).toBe(200);
     const content = await response.text();
     expect(content).toContain("body");

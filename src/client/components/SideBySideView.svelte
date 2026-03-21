@@ -1,0 +1,36 @@
+<script lang="ts">
+  import type { Images } from '../../types';
+
+  interface Props {
+    image: Partial<Images>;
+  }
+
+  let { image }: Props = $props();
+</script>
+
+<div class="flex flex-col md:flex-row gap-3 items-start">
+  {#if image.expect}
+    <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0 border-2 border-green-500/60">
+      <h3 class="m-0 px-3 py-2 text-xs font-bold bg-green-500/25 text-green-800 dark:text-green-400 uppercase tracking-wider">Expected</h3>
+      <div class="flex items-center justify-center p-2">
+        <img src={image.expect} alt="Expected" class="w-auto max-w-full object-contain mx-auto" loading="lazy" />
+      </div>
+    </div>
+  {/if}
+  {#if image.diff}
+    <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0 border-2 border-yellow-500/60">
+      <h3 class="m-0 px-3 py-2 text-xs font-bold bg-yellow-500/25 text-yellow-800 dark:text-yellow-400 uppercase tracking-wider">Diff</h3>
+      <div class="flex items-center justify-center p-2">
+        <img src={image.diff} alt="Diff" class="w-auto max-w-full object-contain mx-auto" loading="lazy" />
+      </div>
+    </div>
+  {/if}
+  {#if image.actual}
+    <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0 border-2 border-red-500/60">
+      <h3 class="m-0 px-3 py-2 text-xs font-bold bg-red-500/25 text-red-800 dark:text-red-400 uppercase tracking-wider">Actual</h3>
+      <div class="flex items-center justify-center p-2">
+        <img src={image.actual} alt="Actual" class="w-auto max-w-full object-contain mx-auto" loading="lazy" />
+      </div>
+    </div>
+  {/if}
+</div>

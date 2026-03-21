@@ -109,6 +109,8 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
           status: "running",
         };
       }
+      const label = testName ?? title;
+      console.log(`  ▶ [${browser ?? "?"}] ${label}`);
       break;
     }
     case "test-end": {
@@ -122,15 +124,22 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
       const test = reportData.tests[data.id];
       if (test) {
         test.status = mapStatus(data.status);
+        const images = attachmentsToImages(data.attachments);
         test.results = [
           {
             status: data.status === "passed" ? "success" : "failed",
             retries: 0,
-            images: attachmentsToImages(data.attachments),
+            images,
             error: data.error,
             duration: data.duration,
           },
         ];
+        const icon = data.status === "passed" ? "✓" : data.status === "skipped" ? "–" : "✗";
+        const dur = data.duration != null ? ` (${data.duration}ms)` : "";
+        const diffCount = Object.keys(images).length;
+        const diffNote = diffCount > 0 ? ` [${diffCount} diff(s)]` : "";
+        const errNote = data.error ? `\n    Error: ${data.error}` : "";
+        console.log(`  ${icon} [${test.browser}] ${test.testName}${dur}${diffNote}${errNote}`);
       }
       broadcastToBrowsers({ type: "test-update", data });
       break;
@@ -138,6 +147,16 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
     case "run-end": {
       reportData.isRunning = false;
       await saveReport();
+      const tests = Object.values(reportData.tests);
+      const passed = tests.filter((t) => t?.status === "success").length;
+      const failed = tests.filter((t) => t?.status === "failed").length;
+      const pending = tests.filter((t) => t?.status === "pending").length;
+      const diffs = tests.filter(
+        (t) => t?.results?.some((r) => r.images && Object.keys(r.images).length > 0),
+      ).length;
+      console.log(
+        `\nRun complete — ${passed} passed, ${failed} failed, ${pending} skipped${diffs > 0 ? `, ${diffs} with diffs` : ""}`,
+      );
       broadcastToBrowsers({ type: "run-end", data: msg.data });
       break;
     }
@@ -195,8 +214,8 @@ Bun.serve({
       const html = Bun.file("./index.html");
       return new Response(html, { headers: { "Content-Type": "text/html" } });
     },
-    "/src/client/styles.css": async () => {
-      const css = Bun.file("./src/client/styles.css");
+    "/src/client/app.css": async () => {
+      const css = Bun.file("./src/client/app.css");
       return new Response(css, { headers: { "Content-Type": "text/css" } });
     },
     "/src/*": async (req) => {
@@ -228,6 +247,8 @@ Bun.serve({
           }
           (reportData.tests[id].approved as Record<string, number>)[image] = retry;
           await saveReport();
+          const test = reportData.tests[id];
+          console.log(`  ✔ Approved [${test?.browser}] ${test?.testName} — ${image}`);
         }
 
         return Response.json({ success: true });
@@ -236,6 +257,7 @@ Bun.serve({
       }
     },
     "/api/approve-all": async () => {
+      let approvedCount = 0;
       Object.values(reportData.tests).forEach((test) => {
         if (test && test.results) {
           test.approved = {};
@@ -243,11 +265,13 @@ Bun.serve({
           if (lastResult?.images) {
             Object.keys(lastResult.images).forEach((imageName) => {
               (test.approved as Record<string, number>)[imageName] = test.results!.length - 1;
+              approvedCount++;
             });
           }
         }
       });
       await saveReport();
+      console.log(`  ✔ Approved all — ${approvedCount} image(s)`);
       return Response.json({ success: true });
     },
     "/api/images/*": async (req) => {
@@ -288,9 +312,8 @@ Bun.serve({
   websocket: {
     open(ws) {
       wsClients.add(ws);
-      console.log("WebSocket connected. Clients:", wsClients.size);
     },
-    message(ws, message) {
+    message(_ws, message) {
       try {
         const msg = JSON.parse(message.toString()) as WebSocketMessage;
         handleWebSocketMessage(msg).catch((e) => {
@@ -302,7 +325,6 @@ Bun.serve({
     },
     close(ws) {
       wsClients.delete(ws);
-      console.log("WebSocket disconnected. Clients:", wsClients.size);
     },
   },
   development: {

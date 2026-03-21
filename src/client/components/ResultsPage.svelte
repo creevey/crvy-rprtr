@@ -1,8 +1,11 @@
 <script lang="ts">
-  import type { CreeveyTest, ImagesViewMode, Images } from '../../types';
+  import type { CreeveyTest, ImagesViewMode } from '../../types';
   import { viewModes, VIEW_MODE_KEY } from '../viewMode';
   import { cn } from '../cn';
   import SlideView from './SlideView.svelte';
+  import SideBySideView from './SideBySideView.svelte';
+  import SwapView from './SwapView.svelte';
+  import BlendView from './BlendView.svelte';
 
   interface Props {
     test: CreeveyTest;
@@ -16,8 +19,6 @@
   }
 
   let { test, retry, imageName, viewMode, canApprove, onImageChange, onRetryChange, onViewModeChange }: Props = $props();
-
-  let swapActive = $state(false);
 
   let result = $derived(test.results?.[retry - 1]);
   let image = $derived(result?.images?.[imageName] ?? null);
@@ -37,10 +38,6 @@
   );
 
   function handleKeydown(e: KeyboardEvent): void {
-    if (e.code === 'Space' && viewMode === 'swap') {
-      e.preventDefault();
-      swapActive = !swapActive;
-    }
     if (e.code === 'Tab' && hasDiffAndExpect) {
       e.preventDefault();
       const idx = viewModes.indexOf(viewMode);
@@ -64,18 +61,34 @@
 
 <div class="flex flex-col h-full">
   <!-- Header -->
-  <div class="py-3 px-5 max-md:px-3 bg-surface-alt border-b border-edge flex max-md:flex-col items-start justify-between gap-2 md:gap-4 shrink-0">
-    <div class="min-w-0">
-      <h2 class="text-base text-fg-bright m-0 mb-1 font-medium whitespace-nowrap overflow-hidden text-ellipsis text-pretty">
+  <div class="py-3 px-5 max-md:px-3 bg-surface-alt border-b border-edge flex items-center gap-2 shrink-0">
+    <!-- Left: view mode switcher -->
+    <div class="flex shrink-0 mr-3">
+      {#if hasDiffAndExpect}
+        {#each viewModes as mode, i}
+          <button
+            class={cn(
+              'px-2.5 py-1 border text-xs cursor-pointer transition-all focus-visible:ring-2 focus-visible:ring-accent',
+              i === 0 && 'rounded-l',
+              i === viewModes.length - 1 && 'rounded-r',
+              viewMode === mode
+                ? 'bg-accent border-accent text-white font-medium shadow-inner'
+                : 'bg-surface-input border-edge text-fg-muted hover:text-fg hover:bg-surface-hover',
+            )}
+            onclick={() => onViewModeChange(mode)}
+          >
+            {mode}
+          </button>
+        {/each}
+      {/if}
+    </div>
+    <!-- Center: title and image tabs -->
+    <div class="flex-1 flex flex-col items-center min-w-0 pr-10">
+      <h2 class="text-base text-fg-bright m-0 font-medium whitespace-nowrap overflow-hidden text-ellipsis text-pretty max-w-full">
         {test.testName ?? test.storyId}
       </h2>
-      {#if result?.error}
-        <div class="text-xs text-error mb-2 px-2 py-1 bg-error/10 rounded-sm max-h-[60px] overflow-y-auto whitespace-pre-wrap font-mono">
-          {result.error}
-        </div>
-      {/if}
       {#if imageNames.length > 1}
-        <div class="flex gap-1 flex-wrap">
+        <div class="flex gap-1 flex-wrap justify-center mt-1">
           {#each imageNames as name}
             <button
               class={cn(
@@ -91,109 +104,36 @@
         </div>
       {/if}
     </div>
-    {#if hasDiffAndExpect}
-      <div class="flex shrink-0">
-        {#each viewModes as mode, i}
-          <button
-            class={cn(
-              'px-2.5 py-1 bg-surface-input border border-edge text-fg text-xs cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-accent',
-              i === 0 && 'rounded-l',
-              i === viewModes.length - 1 && 'rounded-r',
-              viewMode === mode && 'bg-accent border-accent text-white',
-            )}
-            onclick={() => onViewModeChange(mode)}
-          >
-            {mode}
-          </button>
-        {/each}
-      </div>
-    {/if}
   </div>
 
   <!-- Body -->
-  <div class="flex-1 overflow-auto p-4 max-md:p-2 min-h-0">
+  <div class="flex-1 overflow-auto p-4 max-md:p-2 min-h-0 flex justify-center items-center">
     {#if !image}
       <div class="flex-1 flex items-center justify-center text-fg-muted text-base">No image to display</div>
     {:else if viewMode === 'side-by-side' || !hasDiffAndExpect}
-      <div class="flex flex-col md:flex-row gap-3 min-h-full">
-        {#if image.expect}
-          <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0">
-            <h3 class="m-0 px-3 py-2 text-xs font-medium bg-surface-panel-hd text-fg-bright uppercase tracking-wider">Expected</h3>
-            <img src={image.expect} alt="Expected" class="w-full object-contain block" loading="lazy" />
-          </div>
-        {/if}
-        {#if image.actual}
-          <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0">
-            <h3 class="m-0 px-3 py-2 text-xs font-medium bg-surface-panel-hd text-fg-bright uppercase tracking-wider">Actual</h3>
-            <img src={image.actual} alt="Actual" class="w-full object-contain block" loading="lazy" />
-          </div>
-        {/if}
-        {#if image.diff}
-          <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0">
-            <h3 class="m-0 px-3 py-2 text-xs font-medium bg-surface-panel-hd text-fg-bright uppercase tracking-wider">Diff</h3>
-            <img src={image.diff} alt="Diff" class="w-full object-contain block" loading="lazy" />
-          </div>
-        {/if}
-      </div>
+      <SideBySideView {image} />
     {:else if viewMode === 'swap'}
-      <div class="flex flex-col gap-3 min-h-full">
-        <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden max-w-[800px]">
-          <h3 class="m-0 px-3 py-2 text-xs font-medium bg-surface-panel-hd text-fg-bright uppercase tracking-wider">
-            Swap View (click or press Space)
-          </h3>
-          <div
-            class="relative cursor-pointer min-h-[100px]"
-            onclick={() => swapActive = !swapActive}
-            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') swapActive = !swapActive; }}
-            role="button"
-            tabindex="0"
-          >
-            {#if image.expect}
-              <img
-                src={image.expect}
-                alt="Expected"
-                class="w-full block transition-opacity"
-                style:opacity={swapActive ? 0 : 1}
-              />
-            {/if}
-            {#if image.actual}
-              <img
-                src={image.actual}
-                alt="Actual"
-                class="absolute inset-0 w-full block transition-opacity"
-                style:opacity={swapActive ? 1 : 0}
-              />
-            {/if}
-          </div>
-        </div>
-      </div>
+      <SwapView {image} />
     {:else if viewMode === 'slide'}
-      <div class="flex flex-col gap-3 min-h-full">
+      <div class="flex flex-col gap-3">
         {#if image.actual && image.expect && image.diff}
-          <SlideView actual={image.actual} expect={image.expect} diff={image.diff} />
+          <div class="flex flex-col bg-surface-panel rounded-md overflow-hidden border-2 border-yellow-500/60 w-fit max-w-full">
+            <h3 class="m-0 px-3 py-2 text-xs font-bold bg-yellow-500/25 text-yellow-800 dark:text-yellow-400 uppercase tracking-wider">Slide (drag to compare)</h3>
+            <div class="p-2">
+              <SlideView actual={image.actual} expect={image.expect} diff={image.diff} />
+            </div>
+          </div>
         {:else if image.actual}
-          <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0">
-            <h3 class="m-0 px-3 py-2 text-xs font-medium bg-surface-panel-hd text-fg-bright uppercase tracking-wider">Actual</h3>
-            <img src={image.actual} alt="Actual" class="w-full object-contain block" loading="lazy" />
+          <div class="flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0 border-2 border-red-500/60">
+            <h3 class="m-0 px-3 py-2 text-xs font-bold bg-red-500/25 text-red-800 dark:text-red-400 uppercase tracking-wider">Actual</h3>
+            <div class="flex items-center justify-center p-2">
+              <img src={image.actual} alt="Actual" class="w-auto max-w-full object-contain mx-auto" loading="lazy" />
+            </div>
           </div>
         {/if}
       </div>
     {:else if viewMode === 'blend'}
-      <div class="flex flex-col gap-3 min-h-full">
-        <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden max-w-[800px]">
-          <h3 class="m-0 px-3 py-2 text-xs font-medium bg-surface-panel-hd text-fg-bright uppercase tracking-wider">
-            Blend (Difference)
-          </h3>
-          <div class="relative min-h-[100px]">
-            {#if image.expect}
-              <img src={image.expect} alt="Expected" class="w-full block" />
-            {/if}
-            {#if image.actual}
-              <img src={image.actual} alt="Actual" class="absolute inset-0 w-full mix-blend-difference invert" />
-            {/if}
-          </div>
-        </div>
-      </div>
+      <BlendView {image} />
     {/if}
   </div>
 

@@ -136,7 +136,7 @@
     <input
       type="text"
       class="w-full px-2.5 py-1.5 bg-surface-input border border-edge rounded text-fg text-ui outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors focus:border-accent placeholder:text-fg-muted"
-      placeholder="Filter tests\u2026 (status:failed)"
+      placeholder="Filter tests… (status:failed)"
       aria-label="Filter tests"
       autocomplete="off"
       value={filterInput}

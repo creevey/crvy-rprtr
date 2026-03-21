@@ -25,8 +25,13 @@
   --animate-pulse-dot: pulse-dot 1s infinite;
 
   @keyframes pulse-dot {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
   }
 }
 
@@ -73,7 +78,8 @@
 @layer base {
   body {
     @apply bg-surface text-fg antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
     overflow-x: hidden;
     touch-action: manipulation;
@@ -110,15 +116,21 @@
   margin: 0;
   z-index: 1;
 }
-.slide-input::-webkit-slider-runnable-track { height: 100%; }
+.slide-input::-webkit-slider-runnable-track {
+  height: 100%;
+}
 .slide-input::-webkit-slider-thumb {
   box-shadow: 0 0 0 0.5px var(--c-fg-muted);
   height: 100%;
   width: 0;
   appearance: none;
 }
-.slide-input::-moz-focus-outer { border: 0; }
-.slide-input::-moz-range-track { height: 0; }
+.slide-input::-moz-focus-outer {
+  border: 0;
+}
+.slide-input::-moz-range-track {
+  height: 0;
+}
 .slide-input::-moz-range-thumb {
   border: none;
   box-shadow: 0 0 0 0.5px var(--c-fg-muted);

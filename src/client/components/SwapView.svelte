@@ -29,28 +29,30 @@
       {swapActive ? 'Actual' : 'Expected'} (click or press Space)
     </h3>
     <div
-      class="relative cursor-pointer p-2"
+      class="cursor-pointer p-2"
       onclick={toggle}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggle(); }}
       role="button"
       tabindex="0"
     >
-      {#if image.expect}
-        <img
-          src={image.expect}
-          alt="Expected"
-          class="block transition-opacity w-auto max-w-full mx-auto"
-          style:opacity={swapActive ? 0 : 1}
-        />
-      {/if}
-      {#if image.actual}
-        <img
-          src={image.actual}
-          alt="Actual"
-          class="absolute inset-2 block transition-opacity w-auto max-w-full mx-auto"
-          style:opacity={swapActive ? 1 : 0}
-        />
-      {/if}
+      <div class="grid">
+        {#if image.expect}
+          <img
+            src={image.expect}
+            alt="Expected"
+            class="col-start-1 row-start-1 block transition-opacity w-auto max-w-full mx-auto"
+            style:opacity={swapActive ? 0 : 1}
+          />
+        {/if}
+        {#if image.actual}
+          <img
+            src={image.actual}
+            alt="Actual"
+            class="col-start-1 row-start-1 block transition-opacity w-auto max-w-full mx-auto"
+            style:opacity={swapActive ? 1 : 0}
+          />
+        {/if}
+      </div>
     </div>
   </div>
 </div>

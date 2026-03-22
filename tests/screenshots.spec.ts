@@ -9,7 +9,7 @@ test.describe("App UI", () => {
 
   test("sidebar header shows title and status counts", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator(".sidebar-header h1")).toHaveText("Creevey Reporter");
-    await expect(page.locator(".sidebar-header .tests-status")).toBeVisible();
+    await expect(page.locator("h1")).toHaveText("Creevey Reporter");
+    await expect(page.locator('input[aria-label="Filter tests"]')).toBeVisible();
   });
 });

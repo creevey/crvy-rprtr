@@ -32,8 +32,14 @@
           (name) =>
             result!.status !== 'success' &&
             test.approved?.[name] !== retry - 1 &&
-            result!.images?.[name]?.error != null,
+            result!.images?.[name]?.diff != null,
         )
+      : []
+  );
+
+  let imagesApproved = $derived(
+    result?.images
+      ? Object.keys(result.images).filter((name) => test.approved?.[name] === retry - 1)
       : []
   );
 
@@ -94,7 +100,8 @@
               class={cn(
                 'px-2.5 py-1 bg-surface-input border rounded-sm text-fg text-xs cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-accent',
                 name === imageName ? 'bg-accent border-accent text-white' : 'border-edge',
-                imagesWithError.includes(name) && 'border-error',
+                name !== imageName && imagesWithError.includes(name) && 'border-error',
+                name !== imageName && imagesApproved.includes(name) && 'border-success',
               )}
               onclick={() => onImageChange(name)}
             >

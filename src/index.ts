@@ -75,12 +75,10 @@ const handleApprove = async (id: string, retry: number, image: string): Promise<
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id, retry, image }),
   });
-  window.location.reload();
 };
 
 const handleApproveAll = async (): Promise<void> => {
   await fetch("/api/approve-all", { method: "POST" });
-  window.location.reload();
 };
 
 const root = document.getElementById("root")!;

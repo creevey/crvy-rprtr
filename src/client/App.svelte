@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { CreeveySuite, CreeveyTest, ImagesViewMode } from '../types';
-  import { isTest } from '../types';
+  import { isTest, isDefined } from '../types';
   import {
     openSuite,
     checkSuite,
@@ -24,8 +24,8 @@
     initialTests: CreeveySuite;
     isReport: boolean;
     isUpdateMode: boolean;
-    onApprove: (id: string, retry: number, image: string) => void;
-    onApproveAll: () => void;
+    onApprove: (id: string, retry: number, image: string) => Promise<void>;
+    onApproveAll: () => Promise<void>;
   }
 
   let { initialTests, isReport, isUpdateMode, onApprove, onApproveAll }: Props = $props();
@@ -217,14 +217,36 @@
     }
   }
 
-  function handleImageApprove(): void {
+  async function handleImageApprove(): Promise<void> {
     if (!openedTest?.id || !canApprove) return;
-    onApprove(openedTest.id, retry - 1, imageName);
+    await onApprove(openedTest.id, retry - 1, imageName);
+    if (!openedTest.approved) openedTest.approved = {};
+    (openedTest.approved as Record<string, number>)[imageName] = retry - 1;
   }
 
-  function handleApproveAndGoNext(): void {
-    handleImageApprove();
+  async function handleApproveAndGoNext(): Promise<void> {
+    await handleImageApprove();
     handleGoToNextFailed();
+  }
+
+  function getAllTests(suite: CreeveySuite): CreeveyTest[] {
+    return Object.values(suite.children)
+      .filter(isDefined)
+      .flatMap((child) => (isTest(child) ? [child] : getAllTests(child)));
+  }
+
+  async function handleApproveAllTests(): Promise<void> {
+    await onApproveAll();
+    getAllTests(tests).forEach((test) => {
+      if (!test.results?.length) return;
+      const lastIdx = test.results.length - 1;
+      const lastResult = test.results[lastIdx];
+      if (!lastResult?.images) return;
+      test.approved = Object.fromEntries(
+        Object.keys(lastResult.images).map((name) => [name, lastIdx]),
+      );
+      test.status = 'approved';
+    });
   }
 
   function handleStart(): void {}
@@ -272,7 +294,7 @@
     onStop={handleStop}
     onApprove={handleApproveAndGoNext}
     onNext={handleGoToNextFailed}
-    {onApproveAll}
+    onApproveAll={handleApproveAllTests}
   />
   <div class="flex-1 flex flex-col overflow-hidden min-w-0">
     {#if openedTest && testResult}

@@ -21,7 +21,7 @@
           </div>
         {/if}
         {#if image.diff}
-          <img src={image.diff} alt="Diff" class="opacity-0 max-w-full" />
+          <img src={image.diff} alt="Diff" class="border border-transparent max-w-full invert opacity-0" />
         {/if}
         {#if image.actual}
           <div class="absolute w-full h-full flex">

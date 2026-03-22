@@ -8,15 +8,16 @@
   let { actual, expect, diff }: Props = $props();
 
   let loaded = $state(false);
-  let expectedContainerEl: HTMLDivElement | undefined = $state();
-  let expectedWrapperEl: HTMLDivElement | undefined = $state();
+  let offset = $state(0);
   let diffImageEl: HTMLImageElement | undefined = $state();
   let step = $state(0);
 
+  // Must match h-9 (36px)
+  const HEADER_H = 36;
+
   function handleSlide(e: Event): void {
-    const offset = Number((e.target as HTMLInputElement).value);
-    if (expectedContainerEl) expectedContainerEl.style.right = `${100 - offset}%`;
-    if (expectedWrapperEl) expectedWrapperEl.style.left = `${100 - offset}%`;
+    offset = Number((e.target as HTMLInputElement).value);
+    step = step; // keep step reactive
   }
 
   $effect(() => {
@@ -43,19 +44,19 @@
       step = width > 0 ? 100 / width : 1;
     }
   });
-
-  $effect(() => {
-    if (loaded && expectedContainerEl && expectedWrapperEl) {
-      expectedContainerEl.style.right = '100%';
-      expectedWrapperEl.style.left = '100%';
-    }
-  });
 </script>
 
 {#if loaded}
+  <!--
+    Ghost diff image (margin-top reserves header space) sizes the outer container.
+    Both actual and expected layers are absolute overlays at normal coordinates,
+    so their children (images, headers) position correctly without any left-shift trick.
+    The expected layer is clipped via clip-path driven by the slider offset.
+  -->
   <div class="relative flex w-fit">
     <input
       class="slide-input"
+      style="z-index: 10"
       type="range"
       aria-label="Slide comparison"
       min={0}
@@ -64,19 +65,37 @@
       {step}
       oninput={handleSlide}
     />
-    <div class="absolute w-full h-full overflow-hidden">
-      <div class="relative w-full h-full flex">
-        <img class="max-w-full border border-error" src={actual} alt="actual" />
+
+    <!-- Actual card (bottom layer, full width) — "ACTUAL" right-aligned -->
+    <div class="absolute inset-0 rounded-xl border-2 border-error pointer-events-none">
+      <div class="h-9 px-3 flex items-center justify-end bg-error/15 rounded-t-xl">
+        <span class="text-xs font-bold text-error uppercase tracking-wider select-none">Actual</span>
       </div>
     </div>
-    <div class="absolute w-full h-full overflow-hidden" bind:this={expectedContainerEl}>
-      <div class="relative w-full h-full flex" bind:this={expectedWrapperEl}>
-        <img class="max-w-full border border-success" src={expect} alt="expect" />
+    <div class="absolute left-0 right-0 bottom-0 overflow-hidden" style="top: {HEADER_H}px">
+      <img class="max-w-full block" src={actual} alt="actual" />
+    </div>
+
+    <!-- Expected card (clipped to left `offset`% via clip-path) — "EXPECTED" left-aligned -->
+    <div
+      class="absolute inset-0"
+      style="clip-path: polygon(0 0, {offset}% 0, {offset}% 100%, 0 100%)"
+    >
+      <div class="absolute inset-0 rounded-xl border-2 border-success pointer-events-none">
+        <div class="h-9 px-3 flex items-center bg-success/15 rounded-t-xl">
+          <span class="text-xs font-bold text-success uppercase tracking-wider select-none">Expected</span>
+        </div>
+      </div>
+      <div class="absolute left-0 right-0 bottom-0 overflow-hidden" style="top: {HEADER_H}px">
+        <img class="max-w-full block" src={expect} alt="expect" />
       </div>
     </div>
+
+    <!-- Ghost: diff image with margin-top to reserve header height, sizes the container -->
     <img
       bind:this={diffImageEl}
-      class="opacity-0 max-w-full"
+      class="opacity-0 max-w-full block"
+      style="margin-top: {HEADER_H}px"
       src={diff}
       alt="diff"
     />

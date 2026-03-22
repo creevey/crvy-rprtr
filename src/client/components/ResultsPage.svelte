@@ -124,12 +124,7 @@
     {:else if viewMode === 'slide'}
       <div class="flex flex-col gap-3">
         {#if image.actual && image.expect && image.diff}
-          <div class="flex flex-col bg-surface-panel rounded-md overflow-hidden border-2 border-yellow-500/60 w-fit max-w-full">
-            <h3 class="m-0 px-3 py-2 text-xs font-bold bg-yellow-500/25 text-yellow-800 dark:text-yellow-400 uppercase tracking-wider">Slide (drag to compare)</h3>
-            <div class="p-2">
-              <SlideView actual={image.actual} expect={image.expect} diff={image.diff} />
-            </div>
-          </div>
+          <SlideView actual={image.actual} expect={image.expect} diff={image.diff} />
         {:else if image.actual}
           <div class="flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0 border-2 border-red-500/60">
             <h3 class="m-0 px-3 py-2 text-xs font-bold bg-red-500/25 text-red-800 dark:text-red-400 uppercase tracking-wider">Actual</h3>

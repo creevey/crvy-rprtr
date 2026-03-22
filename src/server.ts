@@ -136,6 +136,10 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
             images = prev;
           }
         }
+        // New failure with diff images invalidates any prior approval.
+        const hasDiffs = Object.values(images).some((img) => img?.diff);
+        if (hasDiffs) test.approved = null;
+
         test.results = [
           {
             status: data.status === "passed" ? "success" : "failed",

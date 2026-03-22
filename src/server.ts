@@ -176,11 +176,11 @@ function attachmentsToImages(
     else if (role === "expected") images[baseName]!.expect = url;
     else if (role === "diff") images[baseName]!.diff = url;
   }
-  // Drop entries where comparison passed (has expected but no diff) — nothing to review.
-  // Keep new screenshots (actual only, no expected) — they need approval too.
+  // For passing comparisons (has expected but no diff), drop the expect so only
+  // the actual is shown — it matched the baseline so there's nothing to review.
   for (const key of Object.keys(images)) {
     const img = images[key];
-    if (!img?.diff && img?.expect) delete images[key];
+    if (!img?.diff && img?.expect) delete img.expect;
   }
   return images;
 }

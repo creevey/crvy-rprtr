@@ -2,6 +2,7 @@ import type { TestData, WebSocketMessage } from "./types.ts";
 import type { ServerWebSocket } from "bun";
 
 const wsClients = new Set<ServerWebSocket>();
+const currentRunIds = new Set<string>();
 
 interface ReportData {
   isRunning: boolean;
@@ -97,6 +98,7 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
         browser: string;
         location: { file: string; line: number };
       };
+      currentRunIds.add(id);
       if (!reportData.tests[id]) {
         reportData.tests[id] = {
           id,
@@ -136,7 +138,7 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
         ];
         const icon = data.status === "passed" ? "✓" : data.status === "skipped" ? "–" : "✗";
         const dur = data.duration != null ? ` (${data.duration}ms)` : "";
-        const diffCount = Object.keys(images).length;
+        const diffCount = Object.values(images).filter((img) => img?.diff).length;
         const diffNote = diffCount > 0 ? ` [${diffCount} diff(s)]` : "";
         const errNote = data.error ? `\n    Error: ${data.error}` : "";
         console.log(`  ${icon} [${test.browser}] ${test.testName}${dur}${diffNote}${errNote}`);
@@ -146,11 +148,16 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
     }
     case "run-end": {
       reportData.isRunning = false;
+      // Remove tests that were not part of this run (stale entries from previous runs)
+      for (const id of Object.keys(reportData.tests)) {
+        if (!currentRunIds.has(id)) delete reportData.tests[id];
+      }
+      currentRunIds.clear();
       await saveReport();
-      const allTests = Object.values(reportData.tests).filter(Boolean);
-      const passed = allTests.filter((t) => t!.status === "success").length;
-      const failed = allTests.filter((t) => t!.status === "failed").length;
-      const pending = allTests.filter((t) => t!.status === "pending").length;
+      const runTests = Object.values(reportData.tests).filter(Boolean);
+      const passed = runTests.filter((t) => t!.status === "success").length;
+      const failed = runTests.filter((t) => t!.status === "failed").length;
+      const pending = runTests.filter((t) => t!.status === "pending").length;
       console.log(`\nRun complete — ${passed} passed, ${failed} failed, ${pending} skipped`);
       broadcastToBrowsers({ type: "run-end", data: msg.data });
       break;

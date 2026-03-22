@@ -126,7 +126,16 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
       const test = reportData.tests[data.id];
       if (test) {
         test.status = mapStatus(data.status);
-        const images = attachmentsToImages(data.attachments);
+        let images = attachmentsToImages(data.attachments);
+        // For passing tests with no new attachments, preserve images from the
+        // previous passing result (actual-only, no diff) so screenshot tests
+        // remain visible across runs without re-uploading the baseline.
+        if (data.status === "passed" && Object.keys(images).length === 0) {
+          const prev = test.results?.[0]?.images ?? {};
+          if (Object.values(prev).some((img) => img?.actual && !img?.diff)) {
+            images = prev;
+          }
+        }
         test.results = [
           {
             status: data.status === "passed" ? "success" : "failed",

@@ -6,7 +6,7 @@ import type {
   TestResult,
   FullResult,
 } from "@playwright/test/reporter";
-import { mkdir, copyFile, writeFile, readdir } from "fs/promises";
+import { mkdir, copyFile, writeFile } from "fs/promises";
 import { join } from "path";
 
 export interface CreeveyReporterOptions {
@@ -104,11 +104,6 @@ export class CreeveyReporter implements Reporter {
   async onTestEnd(test: TestCase, result: TestResult): Promise<void> {
     const savedAttachments = await this.saveAttachments(test.id, result);
 
-    if (result.status === "passed") {
-      const baselineAttachments = await this.saveBaselineSnapshots(test, savedAttachments);
-      savedAttachments.push(...baselineAttachments);
-    }
-
     this.send({
       type: "test-end",
       data: {
@@ -120,41 +115,6 @@ export class CreeveyReporter implements Reporter {
         duration: result.duration,
       },
     });
-  }
-
-  private async saveBaselineSnapshots(
-    test: TestCase,
-    existingAttachments: AttachmentData[],
-  ): Promise<AttachmentData[]> {
-    if (existingAttachments.some((a) => a.contentType === "image/png")) return [];
-
-    const snapshotDir = `${test.location.file}-snapshots`;
-    const projectName = test.parent.project()?.name ?? "chromium";
-    const platform = process.platform;
-    const suffix = `-${projectName}-${platform}.png`;
-    const testScreenshotDir = join(this.screenshotDir, this.sanitizeId(test.id));
-    const saved: AttachmentData[] = [];
-
-    try {
-      const files = await readdir(snapshotDir);
-      for (const file of files) {
-        if (!file.endsWith(suffix)) continue;
-        const baseName = file.slice(0, -suffix.length);
-        const destName = `${baseName}-actual.png`;
-        const destPath = join(testScreenshotDir, destName);
-        await mkdir(testScreenshotDir, { recursive: true });
-        await copyFile(join(snapshotDir, file), destPath);
-        saved.push({
-          name: destName,
-          path: `${this.sanitizeId(test.id)}/${destName}`,
-          contentType: "image/png",
-        });
-      }
-    } catch {
-      // No snapshot directory for this test file — not a screenshot test
-    }
-
-    return saved;
   }
 
   private async saveAttachments(testId: string, result: TestResult): Promise<AttachmentData[]> {

@@ -24,7 +24,7 @@
   let image = $derived(result?.images?.[imageName] ?? null);
   let imageNames = $derived(result?.images ? Object.keys(result.images) : []);
   let totalRetries = $derived(test.results?.length ?? 0);
-  let hasDiffAndExpect = $derived(canApprove && Boolean(image?.diff && image?.expect));
+  let hasDiffAndExpect = $derived(Boolean(image?.diff && image?.expect));
 
   let imagesWithError = $derived(
     result?.images
@@ -119,7 +119,7 @@
       {#if !image}
         <div class="flex-1 flex items-center justify-center text-fg-muted text-base">No image to display</div>
       {:else if viewMode === 'side-by-side' || !hasDiffAndExpect}
-        <SideBySideView image={hasDiffAndExpect ? image : { actual: image?.actual ?? '' }} />
+        <SideBySideView {image} />
       {:else if viewMode === 'swap'}
         <SwapView {image} />
       {:else if viewMode === 'slide'}

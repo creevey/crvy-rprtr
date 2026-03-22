@@ -190,11 +190,12 @@ function attachmentsToImages(
     else if (role === "expected") images[baseName]!.expect = url;
     else if (role === "diff") images[baseName]!.diff = url;
   }
-  // For passing comparisons (has expected but no diff), drop the expect so only
-  // the actual is shown — it matched the baseline so there's nothing to review.
+  // For passing comparisons (has both actual and expected but no diff), drop the
+  // expect — it matched so there is nothing to review, keep only actual.
+  // A lone expected (baseline-only, no actual) is kept for display as-is.
   for (const key of Object.keys(images)) {
     const img = images[key];
-    if (!img?.diff && img?.expect) delete img.expect;
+    if (img?.actual && img?.expect && !img?.diff) delete img.expect;
   }
   return images;
 }

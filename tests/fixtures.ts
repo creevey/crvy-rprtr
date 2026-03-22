@@ -39,7 +39,7 @@ export const test = base.extend<{ _screenshotCapture: void }>({
       const file = basename(snapshotPath);
       if (!file.endsWith(suffix)) continue;
       const baseName = file.slice(0, -suffix.length);
-      await testInfo.attach(`${baseName}-actual.png`, {
+      await testInfo.attach(`${baseName}-expected.png`, {
         path: snapshotPath,
         contentType: 'image/png',
       });

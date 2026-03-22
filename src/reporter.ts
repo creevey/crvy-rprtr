@@ -4,10 +4,21 @@ import type {
   Suite,
   TestCase,
   TestResult,
+  TestStep,
   FullResult,
 } from "@playwright/test/reporter";
 import { mkdir, copyFile, writeFile } from "fs/promises";
 import { join } from "path";
+
+function extractScreenshotNames(steps: TestStep[]): string[] {
+  const names: string[] = [];
+  for (const step of steps) {
+    const match = step.title.match(/toHaveScreenshot\((.+?)\)/);
+    if (match?.[1]) names.push(match[1]);
+    if (step.steps.length) names.push(...extractScreenshotNames(step.steps));
+  }
+  return names;
+}
 
 export interface CreeveyReporterOptions {
   serverUrl?: string;
@@ -103,6 +114,29 @@ export class CreeveyReporter implements Reporter {
 
   async onTestEnd(test: TestCase, result: TestResult): Promise<void> {
     const savedAttachments = await this.saveAttachments(test.id, result);
+
+    if (result.status === "passed") {
+      const snapshotNames = extractScreenshotNames(result.steps);
+      if (snapshotNames.length > 0) {
+        const projectName = test.parent.project()?.name ?? "chromium";
+        const snapshotDir = `${test.location.file}-snapshots`;
+        const testScreenshotDir = join(this.screenshotDir, this.sanitizeId(test.id));
+        for (const name of snapshotNames) {
+          const baseName = name.replace(/\.png$/, "");
+          const snapshotPath = join(snapshotDir, `${baseName}-${projectName}-${process.platform}.png`);
+          const destName = `${baseName}-expected`;
+          const destPath = join(testScreenshotDir, destName);
+          try {
+            await mkdir(testScreenshotDir, { recursive: true });
+            await copyFile(snapshotPath, destPath);
+            savedAttachments.push({ name: destName, path: `${this.sanitizeId(test.id)}/${destName}`, contentType: "image/png" });
+            console.log(`[CreeveyReporter] Attached baseline: ${snapshotPath}`);
+          } catch {
+            // baseline not found yet (first run), skip
+          }
+        }
+      }
+    }
 
     this.send({
       type: "test-end",

@@ -240,14 +240,25 @@ Bun.serve({
         const body = await req.json();
         const { id, retry, image } = body as { id: string; retry: number; image: string };
 
-        if (reportData.tests[id]) {
-          if (!reportData.tests[id].approved) {
-            reportData.tests[id].approved = {};
-          }
-          (reportData.tests[id].approved as Record<string, number>)[image] = retry;
+        const test = reportData.tests[id];
+        if (test) {
+          if (!test.approved) test.approved = {};
+          (test.approved as Record<string, number>)[image] = retry;
           await saveReport();
-          const test = reportData.tests[id];
-          console.log(`  ✔ Approved [${test?.browser}] ${test?.testName} — ${image}`);
+
+          const actualUrl = test.results?.[retry]?.images?.[image]?.actual;
+          if (actualUrl && test.location?.file) {
+            const actualPath = actualUrl.replace("/screenshots/", `${reportData.screenshotDir}/`);
+            const snapshotPath = `${test.location.file}-snapshots/${image}-${test.browser}-${process.platform}.png`;
+            try {
+              await Bun.write(snapshotPath, Bun.file(actualPath));
+              console.log(`  ✔ Updated baseline: ${snapshotPath}`);
+            } catch (e) {
+              console.error(`  ✗ Failed to update baseline: ${e}`);
+            }
+          }
+
+          console.log(`  ✔ Approved [${test.browser}] ${test.testName} — ${image}`);
         }
 
         return Response.json({ success: true });
@@ -257,19 +268,35 @@ Bun.serve({
     },
     "/api/approve-all": async () => {
       let approvedCount = 0;
+      const baselineUpdates: Promise<void>[] = [];
+
       Object.values(reportData.tests).forEach((test) => {
-        if (test && test.results) {
-          test.approved = {};
-          const lastResult = test.results[test.results.length - 1];
-          if (lastResult?.images) {
-            Object.keys(lastResult.images).forEach((imageName) => {
-              (test.approved as Record<string, number>)[imageName] = test.results!.length - 1;
-              approvedCount++;
-            });
+        if (!test?.results) return;
+        test.approved = {};
+        const lastRetry = test.results.length - 1;
+        const lastResult = test.results[lastRetry];
+        if (!lastResult?.images) return;
+        Object.keys(lastResult.images).forEach((imageName) => {
+          (test.approved as Record<string, number>)[imageName] = lastRetry;
+          approvedCount++;
+
+          const actualUrl = lastResult.images?.[imageName]?.actual;
+          if (actualUrl && test.location?.file) {
+            const actualPath = actualUrl.replace("/screenshots/", `${reportData.screenshotDir}/`);
+            const snapshotPath = `${test.location.file}-snapshots/${imageName}-${test.browser}-${process.platform}.png`;
+            baselineUpdates.push(
+              Bun.write(snapshotPath, Bun.file(actualPath)).then(() => {
+                console.log(`  ✔ Updated baseline: ${snapshotPath}`);
+              }).catch((e) => {
+                console.error(`  ✗ Failed to update baseline: ${e}`);
+              }),
+            );
           }
-        }
+        });
       });
+
       await saveReport();
+      await Promise.all(baselineUpdates);
       console.log(`  ✔ Approved all — ${approvedCount} image(s)`);
       return Response.json({ success: true });
     },

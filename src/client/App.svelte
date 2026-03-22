@@ -13,6 +13,7 @@
     filterTests,
     flattenSuite,
     getSuiteByPath,
+    hasScreenshots,
     type CreeveyViewFilter,
   } from './helpers';
   import { getViewMode } from './viewMode';
@@ -40,7 +41,7 @@
   let isDark = $state(localStorage.getItem('creevey_theme') !== 'light');
 
   let openedTest = $derived(getTestByPath(tests, openedTestPath));
-  let failedTests = $derived(getFailedTests(tests));
+  let failedTests = $derived(getFailedTests(tests).filter(hasScreenshots));
   let retry = $state(0);
   let imageName = $state('');
 
@@ -222,6 +223,13 @@
     await onApprove(openedTest.id, retry - 1, imageName);
     if (!openedTest.approved) openedTest.approved = {};
     (openedTest.approved as Record<string, number>)[imageName] = retry - 1;
+    const result = openedTest.results?.[retry - 1];
+    if (result?.images) {
+      const allApproved = Object.keys(result.images).every(
+        (name) => openedTest!.approved?.[name] === retry - 1,
+      );
+      if (allApproved) openedTest.status = 'approved';
+    }
   }
 
   async function handleApproveAndGoNext(): Promise<void> {

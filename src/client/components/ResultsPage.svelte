@@ -119,7 +119,7 @@
       {#if !image}
         <div class="flex-1 flex items-center justify-center text-fg-muted text-base">No image to display</div>
       {:else if viewMode === 'side-by-side' || !hasDiffAndExpect}
-        <SideBySideView {image} />
+        <SideBySideView image={hasDiffAndExpect ? image : { actual: image?.actual ?? '' }} />
       {:else if viewMode === 'swap'}
         <SwapView {image} />
       {:else if viewMode === 'slide'}

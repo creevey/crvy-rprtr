@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* dark: variant = when html does NOT have .light class (dark is the default theme) */
+@custom-variant dark (:root:not(.light) &);
+
 @theme {
   --color-surface: var(--c-surface);
   --color-surface-alt: var(--c-surface-alt);
@@ -76,6 +79,11 @@
 }
 
 @layer base {
+  /* Hide focus ring for mouse/touch; keep it for keyboard (Tab) */
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
+
   body {
     @apply bg-surface text-fg antialiased;
     font-family:

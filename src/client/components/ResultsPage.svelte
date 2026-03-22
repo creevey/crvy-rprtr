@@ -114,29 +114,31 @@
   </div>
 
   <!-- Body -->
-  <div class="flex-1 overflow-auto p-4 max-md:p-2 min-h-0 flex justify-center items-center">
-    {#if !image}
-      <div class="flex-1 flex items-center justify-center text-fg-muted text-base">No image to display</div>
-    {:else if viewMode === 'side-by-side' || !hasDiffAndExpect}
-      <SideBySideView {image} />
-    {:else if viewMode === 'swap'}
-      <SwapView {image} />
-    {:else if viewMode === 'slide'}
-      <div class="flex flex-col gap-3">
-        {#if image.actual && image.expect && image.diff}
-          <SlideView actual={image.actual} expect={image.expect} diff={image.diff} />
-        {:else if image.actual}
-          <div class="flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0 border-2 border-red-500/60">
-            <h3 class="m-0 px-3 py-2 text-xs font-bold bg-red-500/25 text-red-800 dark:text-red-400 uppercase tracking-wider">Actual</h3>
-            <div class="flex items-center justify-center p-2">
-              <img src={image.actual} alt="Actual" class="w-auto max-w-full object-contain mx-auto" loading="lazy" />
+  <div class="flex-1 overflow-auto min-h-0">
+    <div class="min-h-full p-4 max-md:p-2 flex justify-center items-center">
+      {#if !image}
+        <div class="flex-1 flex items-center justify-center text-fg-muted text-base">No image to display</div>
+      {:else if viewMode === 'side-by-side' || !hasDiffAndExpect}
+        <SideBySideView {image} />
+      {:else if viewMode === 'swap'}
+        <SwapView {image} />
+      {:else if viewMode === 'slide'}
+        <div class="flex flex-col gap-3">
+          {#if image.actual && image.expect && image.diff}
+            <SlideView actual={image.actual} expect={image.expect} diff={image.diff} />
+          {:else if image.actual}
+            <div class="flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0 border-2 border-red-500/60">
+              <h3 class="m-0 px-3 py-2 text-xs font-bold bg-red-500/25 text-red-800 dark:text-red-200 uppercase tracking-wider">Actual</h3>
+              <div class="flex items-center justify-center p-2">
+                <img src={image.actual} alt="Actual" class="w-auto max-w-full object-contain mx-auto" loading="lazy" />
+              </div>
             </div>
-          </div>
-        {/if}
-      </div>
-    {:else if viewMode === 'blend'}
-      <BlendView {image} />
-    {/if}
+          {/if}
+        </div>
+      {:else if viewMode === 'blend'}
+        <BlendView {image} />
+      {/if}
+    </div>
   </div>
 
   <!-- Footer -->

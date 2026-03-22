@@ -220,6 +220,7 @@ export function countTestsStatus(suite: CreeveySuite): CreeveyTestsStatus {
   let suiteOrTest;
   while ((suiteOrTest = cases.pop())) {
     if (isTest(suiteOrTest)) {
+      if (!hasScreenshots(suiteOrTest)) continue;
       if (suiteOrTest.status === "approved") approvedCount++;
       if (suiteOrTest.status === "success") successCount++;
       if (suiteOrTest.status === "failed") failedCount++;

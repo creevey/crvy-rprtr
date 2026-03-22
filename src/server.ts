@@ -147,16 +147,13 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
     case "run-end": {
       reportData.isRunning = false;
       await saveReport();
-      const tests = Object.values(reportData.tests);
+      const tests = Object.values(reportData.tests).filter(
+        (t) => t?.results?.some((r) => r.images && Object.keys(r.images).length > 0),
+      );
       const passed = tests.filter((t) => t?.status === "success").length;
       const failed = tests.filter((t) => t?.status === "failed").length;
       const pending = tests.filter((t) => t?.status === "pending").length;
-      const diffs = tests.filter(
-        (t) => t?.results?.some((r) => r.images && Object.keys(r.images).length > 0),
-      ).length;
-      console.log(
-        `\nRun complete — ${passed} passed, ${failed} failed, ${pending} skipped${diffs > 0 ? `, ${diffs} with diffs` : ""}`,
-      );
+      console.log(`\nRun complete — ${passed} passed, ${failed} failed, ${pending} skipped`);
       broadcastToBrowsers({ type: "run-end", data: msg.data });
       break;
     }

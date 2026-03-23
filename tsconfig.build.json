@@ -7,8 +7,8 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "emitDeclarationOnly": true
+    "emitDeclarationOnly": true,
   },
   "include": ["src/reporter.ts", "src/server.ts", "src/types.ts", "src/cli.ts"],
-  "exclude": ["src/client/**", "src/index.ts", "node_modules"]
+  "exclude": ["src/client/**", "src/index.ts", "node_modules"],
 }

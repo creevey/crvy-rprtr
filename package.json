@@ -2,7 +2,31 @@
   "name": "@creevey/playwright-reporter",
   "version": "0.0.1",
   "description": "Playwright reporter with visual regression UI for comparing and approving screenshot tests",
+  "keywords": [
+    "creevey",
+    "playwright",
+    "reporter",
+    "screenshot",
+    "testing",
+    "visual-regression"
+  ],
+  "homepage": "https://github.com/creevey/creevey-reporter",
+  "bugs": {
+    "url": "https://github.com/creevey/creevey-reporter/issues"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/creevey/creevey-reporter.git"
+  },
+  "bin": {
+    "creevey-reporter": "./dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "LICENSE",
+    "README.md"
+  ],
   "type": "module",
   "main": "./dist/reporter.js",
   "types": "./dist/reporter.d.ts",
@@ -19,33 +43,6 @@
       "types": "./dist/types.d.ts"
     }
   },
-  "bin": {
-    "creevey-reporter": "./dist/cli.js"
-  },
-  "files": [
-    "dist/",
-    "LICENSE",
-    "README.md"
-  ],
-  "keywords": [
-    "playwright",
-    "reporter",
-    "visual-regression",
-    "screenshot",
-    "testing",
-    "creevey"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/creevey/creevey-reporter.git"
-  },
-  "homepage": "https://github.com/creevey/creevey-reporter",
-  "bugs": {
-    "url": "https://github.com/creevey/creevey-reporter/issues"
-  },
-  "engines": {
-    "bun": ">=1.0.0"
-  },
   "scripts": {
     "dev": "bun --watch build.ts & bun run --watch src/server.ts",
     "build": "bun build.ts",
@@ -57,10 +54,6 @@
     "test:ui": "bun run build && bunx playwright test --ui",
     "example": "cd examples/playwright && bunx playwright test",
     "prepublishOnly": "bun run build"
-  },
-  "peerDependencies": {
-    "@playwright/test": ">=1.40",
-    "typescript": "^5"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
@@ -74,5 +67,12 @@
     "svelte": "^5.54.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.40",
+    "typescript": "^5"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
   }
 }

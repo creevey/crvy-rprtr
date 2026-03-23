@@ -18,9 +18,7 @@ Add the reporter to your `playwright.config.ts`:
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
-  reporter: [
-    ["@creevey/playwright-reporter", { screenshotDir: "./screenshots" }],
-  ],
+  reporter: [["@creevey/playwright-reporter", { screenshotDir: "./screenshots" }]],
 });
 ```
 
@@ -36,10 +34,10 @@ Open http://localhost:3000 in your browser.
 
 ## Reporter Options
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `serverUrl` | `string` | `"ws://localhost:3000"` | WebSocket URL of the Creevey server |
-| `screenshotDir` | `string` | `"./screenshots"` | Directory for saving screenshot artifacts |
+| Option              | Type     | Default                                    | Description                                        |
+| ------------------- | -------- | ------------------------------------------ | -------------------------------------------------- |
+| `serverUrl`         | `string` | `"ws://localhost:3000"`                    | WebSocket URL of the Creevey server                |
+| `screenshotDir`     | `string` | `"./screenshots"`                          | Directory for saving screenshot artifacts          |
 | `offlineReportPath` | `string` | `"./creevey-offline-report-{worker}.json"` | Path for offline report when server is unavailable |
 
 ## Server CLI Options
@@ -48,11 +46,11 @@ Open http://localhost:3000 in your browser.
 bunx creevey-reporter [options]
 ```
 
-| Option | Short | Default | Description |
-| --- | --- | --- | --- |
-| `--port` | `-p` | `3000` | Server port |
-| `--screenshot-dir` | `-s` | `./screenshots` | Screenshot directory path |
-| `--report-path` | `-r` | `./report.json` | Report JSON file path |
+| Option             | Short | Default         | Description               |
+| ------------------ | ----- | --------------- | ------------------------- |
+| `--port`           | `-p`  | `3000`          | Server port               |
+| `--screenshot-dir` | `-s`  | `./screenshots` | Screenshot directory path |
+| `--report-path`    | `-r`  | `./report.json` | Report JSON file path     |
 
 ## How It Works
 

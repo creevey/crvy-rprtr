@@ -1,7 +1,11 @@
 import { build } from "esbuild";
+import { rm } from "fs/promises";
 import sveltePlugin from "esbuild-svelte";
 import postcss from "postcss";
 import tailwindcss from "@tailwindcss/postcss";
+
+// Clean dist/
+await rm("./dist", { recursive: true, force: true });
 
 // Build CSS with Tailwind
 const inputCss = await Bun.file("./src/client/app.css").text();

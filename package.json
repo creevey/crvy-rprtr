@@ -1,8 +1,51 @@
 {
   "name": "@creevey/playwright-reporter",
   "version": "0.0.1",
-  "private": true,
+  "description": "Playwright reporter with visual regression UI for comparing and approving screenshot tests",
+  "license": "MIT",
   "type": "module",
+  "main": "./dist/reporter.js",
+  "types": "./dist/reporter.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/reporter.d.ts",
+      "import": "./dist/reporter.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts"
+    }
+  },
+  "bin": {
+    "creevey-reporter": "./dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "LICENSE",
+    "README.md"
+  ],
+  "keywords": [
+    "playwright",
+    "reporter",
+    "visual-regression",
+    "screenshot",
+    "testing",
+    "creevey"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/creevey/creevey-reporter.git"
+  },
+  "homepage": "https://github.com/creevey/creevey-reporter",
+  "bugs": {
+    "url": "https://github.com/creevey/creevey-reporter/issues"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
   "scripts": {
     "dev": "bun --watch build.ts & bun run --watch src/server.ts",
     "build": "bun build.ts",
@@ -12,24 +55,24 @@
     "typecheck": "tsc --noEmit",
     "test": "bun run build && bunx playwright test",
     "test:ui": "bun run build && bunx playwright test --ui",
-    "example": "cd examples/playwright && bunx playwright test"
+    "example": "cd examples/playwright && bunx playwright test",
+    "prepublishOnly": "bun run build"
   },
-  "dependencies": {
-    "@tailwindcss/postcss": "^4.2.2",
-    "postcss": "^8.5.8",
-    "svelte": "^5.54.0",
-    "tailwindcss": "^4.2.2"
+  "peerDependencies": {
+    "@playwright/test": ">=1.40",
+    "typescript": "^5"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
+    "@tailwindcss/postcss": "^4.2.2",
     "@types/bun": "latest",
     "esbuild": "^0.27.4",
     "esbuild-svelte": "^0.9.4",
     "oxfmt": "^0.41.0",
     "oxlint": "^1.56.0",
+    "postcss": "^8.5.8",
+    "svelte": "^5.54.0",
+    "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
   }
 }

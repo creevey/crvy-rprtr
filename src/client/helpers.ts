@@ -39,19 +39,12 @@ function makeEmptySuiteNode(path: string[] = []): CreeveySuite {
   };
 }
 
-export function calcStatus(
-  oldStatus?: TestStatus,
-  newStatus?: TestStatus,
-): TestStatus | undefined {
-  return newStatus && statusUpdatesMap.get(oldStatus)?.test(newStatus)
-    ? newStatus
-    : oldStatus;
+export function calcStatus(oldStatus?: TestStatus, newStatus?: TestStatus): TestStatus | undefined {
+  return newStatus && statusUpdatesMap.get(oldStatus)?.test(newStatus) ? newStatus : oldStatus;
 }
 
-export function getTestPath(
-  test: Pick<TestData, "browser" | "testName" | "storyPath">,
-): string[] {
-  return [...test.storyPath, test.testName, test.browser].filter(isDefined);
+export function getTestPath(test: Pick<TestData, "browser" | "title" | "titlePath">): string[] {
+  return [...test.titlePath, test.title, test.browser].filter(isDefined);
 }
 
 export function getSuiteByPath(
@@ -59,19 +52,13 @@ export function getSuiteByPath(
   path: string[],
 ): CreeveySuite | CreeveyTest | undefined {
   return path.reduce(
-    (
-      suiteOrTest: CreeveySuite | CreeveyTest | undefined,
-      pathToken: string,
-    ) =>
+    (suiteOrTest: CreeveySuite | CreeveyTest | undefined, pathToken: string) =>
       isTest(suiteOrTest) ? suiteOrTest : suiteOrTest?.children[pathToken],
     suite as CreeveySuite | CreeveyTest | undefined,
   );
 }
 
-export function getTestByPath(
-  suite: CreeveySuite,
-  path: string[],
-): CreeveyTest | null {
+export function getTestByPath(suite: CreeveySuite, path: string[]): CreeveyTest | null {
   const test = getSuiteByPath(suite, path) ?? suite;
   return isTest(test) ? test : null;
 }
@@ -80,8 +67,7 @@ export function getFailedTests(suite: CreeveySuite): CreeveyTest[] {
   return Object.values(suite.children)
     .filter(isDefined)
     .flatMap((suiteOrTest) => {
-      if (isTest(suiteOrTest))
-        return suiteOrTest.status === "failed" ? suiteOrTest : [];
+      if (isTest(suiteOrTest)) return suiteOrTest.status === "failed" ? suiteOrTest : [];
       return getFailedTests(suiteOrTest);
     });
 }
@@ -90,17 +76,13 @@ export function getCheckedTests(suite: CreeveySuite): CreeveyTest[] {
   return Object.values(suite.children)
     .filter(isDefined)
     .flatMap((suiteOrTest) => {
-      if (isTest(suiteOrTest))
-        return suiteOrTest.checked ? suiteOrTest : [];
+      if (isTest(suiteOrTest)) return suiteOrTest.checked ? suiteOrTest : [];
       if (!suiteOrTest.checked && !suiteOrTest.indeterminate) return [];
       return getCheckedTests(suiteOrTest);
     });
 }
 
-function checkTests(
-  suiteOrTest: CreeveySuite | CreeveyTest,
-  checked: boolean,
-): void {
+function checkTests(suiteOrTest: CreeveySuite | CreeveyTest, checked: boolean): void {
   suiteOrTest.checked = checked;
   if (!isTest(suiteOrTest)) {
     suiteOrTest.indeterminate = false;
@@ -119,19 +101,12 @@ function updateChecked(suite: CreeveySuite): void {
   const indeterminate =
     children.some((test) => (isTest(test) ? false : test.indeterminate)) ||
     (!checkedEvery && checkedSome);
-  const checked =
-    indeterminate || suite.checked === checkedEvery
-      ? suite.checked
-      : checkedEvery;
+  const checked = indeterminate || suite.checked === checkedEvery ? suite.checked : checkedEvery;
   suite.checked = checked;
   suite.indeterminate = indeterminate;
 }
 
-export function checkSuite(
-  suite: CreeveySuite,
-  path: string[],
-  checked: boolean,
-): void {
+export function checkSuite(suite: CreeveySuite, path: string[], checked: boolean): void {
   const subSuite = getSuiteByPath(suite, path);
   if (subSuite) checkTests(subSuite, checked);
   path
@@ -145,16 +120,9 @@ export function checkSuite(
   updateChecked(suite);
 }
 
-export function openSuite(
-  suite: CreeveySuite,
-  path: string[],
-  opened: boolean,
-): void {
+export function openSuite(suite: CreeveySuite, path: string[], opened: boolean): void {
   const subSuite = path.reduce(
-    (
-      suiteOrTest: CreeveySuite | CreeveyTest | undefined,
-      pathToken: string,
-    ) => {
+    (suiteOrTest: CreeveySuite | CreeveyTest | undefined, pathToken: string) => {
       if (suiteOrTest && !isTest(suiteOrTest)) {
         if (opened) suiteOrTest.opened = opened;
         return suiteOrTest.children[pathToken];
@@ -165,19 +133,13 @@ export function openSuite(
   if (subSuite && !isTest(subSuite)) subSuite.opened = opened;
 }
 
-export function filterTests(
-  suite: CreeveySuite,
-  filter: CreeveyViewFilter,
-): CreeveySuite {
+export function filterTests(suite: CreeveySuite, filter: CreeveyViewFilter): CreeveySuite {
   const { status, subStrings } = filter;
   if (!status && !subStrings.length) return suite;
   const filteredSuite: CreeveySuite = { ...suite, children: {} };
   Object.entries(suite.children).forEach(([title, suiteOrTest]) => {
     if (!suiteOrTest || suiteOrTest.skip) return;
-    if (
-      !status &&
-      subStrings.some((sub) => title.toLowerCase().includes(sub))
-    ) {
+    if (!status && subStrings.some((sub) => title.toLowerCase().includes(sub))) {
       filteredSuite.children[title] = suiteOrTest;
     } else if (isTest(suiteOrTest)) {
       if (
@@ -201,10 +163,7 @@ export function flattenSuite(
   if (!suite.opened) return [];
   return Object.entries(suite.children).flatMap(([title, subSuite]) =>
     subSuite
-      ? [
-          { title, suite: subSuite },
-          ...(isTest(subSuite) ? [] : flattenSuite(subSuite)),
-        ]
+      ? [{ title, suite: subSuite }, ...(isTest(subSuite) ? [] : flattenSuite(subSuite))]
       : [],
   );
 }
@@ -214,9 +173,7 @@ export function countTestsStatus(suite: CreeveySuite): CreeveyTestsStatus {
   let failedCount = 0;
   let approvedCount = 0;
   let pendingCount = 0;
-  const cases: (CreeveySuite | CreeveyTest)[] = Object.values(
-    suite.children,
-  ).filter(isDefined);
+  const cases: (CreeveySuite | CreeveyTest)[] = Object.values(suite.children).filter(isDefined);
   let suiteOrTest;
   while ((suiteOrTest = cases.pop())) {
     if (isTest(suiteOrTest)) {
@@ -226,9 +183,7 @@ export function countTestsStatus(suite: CreeveySuite): CreeveyTestsStatus {
       if (suiteOrTest.status === "failed") failedCount++;
       if (suiteOrTest.status === "pending") pendingCount++;
     } else {
-      cases.push(
-        ...Object.values(suiteOrTest.children).filter(isDefined),
-      );
+      cases.push(...Object.values(suiteOrTest.children).filter(isDefined));
     }
   }
   return { approvedCount, successCount, failedCount, pendingCount };
@@ -244,9 +199,7 @@ export function updateTestStatus(
   const suiteOrTest =
     suite.children[title] ??
     (suite.children[title] = {
-      ...(path.length === 0
-        ? (update as TestData)
-        : makeEmptySuiteNode([...suite.path, title])),
+      ...(path.length === 0 ? (update as TestData) : makeEmptySuiteNode([...suite.path, title])),
       checked: suite.checked,
     });
   if (isTest(suiteOrTest)) {
@@ -262,8 +215,7 @@ export function updateTestStatus(
     else if (approved !== undefined)
       Object.entries(approved).forEach(
         ([image, retry]) =>
-          retry !== undefined &&
-          ((test.approved = test.approved ?? {})[image] = retry),
+          retry !== undefined && ((test.approved = test.approved ?? {})[image] = retry),
       );
   } else {
     updateTestStatus(suiteOrTest, path, update);
@@ -278,19 +230,12 @@ export function updateTestStatus(
     .reduce(calcStatus);
 }
 
-export function removeTests(
-  suite: CreeveySuite,
-  path: string[],
-): void {
+export function removeTests(suite: CreeveySuite, path: string[]): void {
   const title = path.shift();
   if (!title) return;
   const suiteOrTest = suite.children[title];
-  if (suiteOrTest && !isTest(suiteOrTest))
-    removeTests(suiteOrTest, path);
-  if (
-    isTest(suiteOrTest) ||
-    Object.keys(suiteOrTest?.children ?? {}).length === 0
-  ) {
+  if (suiteOrTest && !isTest(suiteOrTest)) removeTests(suiteOrTest, path);
+  if (isTest(suiteOrTest) || Object.keys(suiteOrTest?.children ?? {}).length === 0) {
     delete suite.children[title];
   }
   if (Object.keys(suite.children).length === 0) return;
@@ -330,8 +275,7 @@ export function parseFilterString(value: string): CreeveyViewFilter {
     .filter(Boolean)
     .map((word) => word.toLowerCase())
     .forEach((word) => {
-      const [, matchedStatus] =
-        /^status:(failed|success|pending|approved)$/i.exec(word) ?? [];
+      const [, matchedStatus] = /^status:(failed|success|pending|approved)$/i.exec(word) ?? [];
       if (matchedStatus) {
         status = matchedStatus as TestStatus;
         return;
@@ -341,19 +285,11 @@ export function parseFilterString(value: string): CreeveyViewFilter {
   return { status, subStrings };
 }
 
-export function hasScreenshots(
-  item: CreeveySuite | CreeveyTest,
-): boolean {
+export function hasScreenshots(item: CreeveySuite | CreeveyTest): boolean {
   if (isTest(item)) {
-    return (
-      item.results?.some(
-        (r) => r.images && Object.keys(r.images).length > 0,
-      ) ?? false
-    );
+    return item.results?.some((r) => r.images && Object.keys(r.images).length > 0) ?? false;
   }
   return Object.values(item.children)
     .filter(isDefined)
-    .some((child) =>
-      hasScreenshots(child as CreeveySuite | CreeveyTest),
-    );
+    .some((child) => hasScreenshots(child as CreeveySuite | CreeveyTest));
 }

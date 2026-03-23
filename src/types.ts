@@ -65,17 +65,15 @@ export interface TestResult {
 
 export interface TestData {
   id: string;
-  storyPath: string[];
+  titlePath: string[];
   browser: string;
-  testName?: string;
-  storyId: string;
+  title: string;
   skip?: boolean | string;
   retries?: number;
   status?: TestStatus;
   results?: TestResult[];
   approved?: Partial<Record<string, number>> | null;
   attachments?: Attachment[];
-  title?: string;
   location?: Location;
 }
 
@@ -111,9 +109,9 @@ export function isTest(x: unknown): x is CreeveyTest {
     x !== null &&
     typeof x === "object" &&
     "id" in x &&
-    "storyId" in x &&
+    "titlePath" in x &&
     typeof (x as CreeveyTest).id === "string" &&
-    typeof (x as CreeveyTest).storyId === "string"
+    Array.isArray((x as CreeveyTest).titlePath)
   );
 }
 

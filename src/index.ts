@@ -32,11 +32,11 @@ function treeifyTests(testsById: Record<string, TestData>): CreeveySuite {
   Object.values(testsById).forEach((test) => {
     if (!test) return;
 
-    const storyPath = test.storyPath ?? [];
+    const titlePath = test.titlePath ?? [];
     const browser = test.browser ?? "";
-    const testName = test.testName;
+    const title = test.title;
 
-    const pathParts: string[] = [...storyPath, testName, browser].filter((p): p is string =>
+    const pathParts: string[] = [...titlePath, title, browser].filter((p): p is string =>
       Boolean(p),
     );
     const [browserName, ...testPathParts] = pathParts.reverse();

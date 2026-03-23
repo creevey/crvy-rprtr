@@ -97,11 +97,10 @@ async function loadOfflineReports(): Promise<void> {
 async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
   switch (msg.type) {
     case "test-begin": {
-      const { id, title, storyPath, testName, browser, location } = msg.data as {
+      const { id, title, titlePath, browser, location } = msg.data as {
         id: string;
         title: string;
-        storyPath: string[];
-        testName: string;
+        titlePath: string[];
         browser: string;
         location: { file: string; line: number };
       };
@@ -109,17 +108,14 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
       if (!reportData.tests[id]) {
         reportData.tests[id] = {
           id,
-          storyId: id,
-          storyPath: storyPath ?? [],
+          titlePath: titlePath ?? [],
           browser: browser ?? "",
-          testName: testName ?? title,
-          title,
+          title: title ?? "",
           location,
           status: "running",
         };
       }
-      const label = testName ?? title;
-      console.log(`  ▶ [${browser ?? "?"}] ${label}`);
+      console.log(`  ▶ [${browser ?? "?"}] ${title}`);
       break;
     }
     case "test-end": {
@@ -161,7 +157,7 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
         const diffCount = Object.values(images).filter((img) => img?.diff).length;
         const diffNote = diffCount > 0 ? ` [${diffCount} diff(s)]` : "";
         const errNote = data.error ? `\n    Error: ${data.error}` : "";
-        console.log(`  ${icon} [${test.browser}] ${test.testName}${dur}${diffNote}${errNote}`);
+        console.log(`  ${icon} [${test.browser}] ${test.title}${dur}${diffNote}${errNote}`);
       }
       broadcastToBrowsers({ type: "test-update", data });
       break;
@@ -296,7 +292,7 @@ export async function startServer(options: ServerOptions = {}): Promise<void> {
               }
             }
 
-            console.log(`  ✔ Approved [${test.browser}] ${test.testName} — ${image}`);
+            console.log(`  ✔ Approved [${test.browser}] ${test.title} — ${image}`);
           }
 
           return Response.json({ success: true });

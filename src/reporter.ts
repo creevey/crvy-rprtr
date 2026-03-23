@@ -90,10 +90,10 @@ export class CreeveyReporter implements Reporter {
   }
 
   onTestBegin(test: TestCase): void {
-    const storyPath: string[] = [];
+    const titlePath: string[] = [];
     let suite: Suite | undefined = test.parent;
     while (suite && suite.type === "describe") {
-      storyPath.unshift(suite.title);
+      titlePath.unshift(suite.title);
       suite = suite.parent;
     }
     this.send({
@@ -101,8 +101,7 @@ export class CreeveyReporter implements Reporter {
       data: {
         id: test.id,
         title: test.title,
-        storyPath,
-        testName: test.title,
+        titlePath,
         browser: test.parent.project()?.name ?? "chromium",
         location: {
           file: test.location.file,
@@ -123,13 +122,20 @@ export class CreeveyReporter implements Reporter {
         const testScreenshotDir = join(this.screenshotDir, this.sanitizeId(test.id));
         for (const name of snapshotNames) {
           const baseName = name.replace(/\.png$/, "");
-          const snapshotPath = join(snapshotDir, `${baseName}-${projectName}-${process.platform}.png`);
+          const snapshotPath = join(
+            snapshotDir,
+            `${baseName}-${projectName}-${process.platform}.png`,
+          );
           const destName = `${baseName}-expected`;
           const destPath = join(testScreenshotDir, destName);
           try {
             await mkdir(testScreenshotDir, { recursive: true });
             await copyFile(snapshotPath, destPath);
-            savedAttachments.push({ name: destName, path: `${this.sanitizeId(test.id)}/${destName}`, contentType: "image/png" });
+            savedAttachments.push({
+              name: destName,
+              path: `${this.sanitizeId(test.id)}/${destName}`,
+              contentType: "image/png",
+            });
             console.log(`[CreeveyReporter] Attached baseline: ${snapshotPath}`);
           } catch {
             // baseline not found yet (first run), skip

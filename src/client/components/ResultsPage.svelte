@@ -91,7 +91,7 @@
     <!-- Center: title and image tabs -->
     <div class="flex-1 flex flex-col items-center min-w-0 pr-10">
       <h2 class="text-base text-fg-bright m-0 font-medium whitespace-nowrap overflow-hidden text-ellipsis text-pretty max-w-full">
-        {test.testName ?? test.storyId}
+        {test.title}
       </h2>
       {#if imageNames.length > 1}
         <div class="flex gap-1 flex-wrap justify-center mt-1">

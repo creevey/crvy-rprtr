@@ -63,7 +63,7 @@
     <span class={cn('text-[9px] transition-transform text-fg-muted shrink-0 w-3 text-center', isOpen && 'rotate-90')} aria-hidden="true">▶</span>
   {/if}
   <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis">
-    {itemIsTest ? (testItem.browser ?? testItem.testName ?? testItem.storyId) : suiteItem.path[suiteItem.path.length - 1] ?? 'Tests'}
+    {itemIsTest ? (testItem.browser ?? testItem.title) : suiteItem.path[suiteItem.path.length - 1] ?? 'Tests'}
   </span>
   {#if item.status}
     <span class={cn('size-2 rounded-full inline-block shrink-0', statusDotClass(item.status))}></span>

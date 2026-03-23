@@ -1,5 +1,14 @@
+import { join } from "path";
 import type { TestData, WebSocketMessage } from "./types.ts";
 import type { ServerWebSocket } from "bun";
+
+export interface ServerOptions {
+  port?: number;
+  screenshotDir?: string;
+  reportPath?: string;
+  /** Absolute path to the directory containing index.html and dist/ */
+  staticDir?: string;
+}
 
 const wsClients = new Set<ServerWebSocket>();
 const currentRunIds = new Set<string>();
@@ -20,9 +29,10 @@ const reportData: ReportData = {
   screenshotDir: "./screenshots",
 };
 
+let reportPath = "./report.json";
+
 async function loadReport(): Promise<void> {
   try {
-    const reportPath = "./report.json";
     const file = Bun.file(reportPath);
     if (file.size > 0) {
       const data = (await file.json()) as {
@@ -38,7 +48,7 @@ async function loadReport(): Promise<void> {
 }
 
 async function saveReport(): Promise<void> {
-  await Bun.write("./report.json", JSON.stringify(reportData, null, 2));
+  await Bun.write(reportPath, JSON.stringify(reportData, null, 2));
 }
 
 interface OfflineReport {
@@ -83,9 +93,6 @@ async function loadOfflineReports(): Promise<void> {
     }
   }
 }
-
-await loadReport();
-await loadOfflineReports();
 
 async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
   switch (msg.type) {
@@ -224,160 +231,178 @@ function mapStatus(status: "passed" | "failed" | "skipped"): TestData["status"] 
   }
 }
 
-Bun.serve({
-  port: 3000,
-  routes: {
-    "/": (req, server) => {
-      if (server.upgrade(req)) return;
-      const html = Bun.file("./index.html");
-      return new Response(html, { headers: { "Content-Type": "text/html" } });
-    },
-    "/src/client/app.css": async () => {
-      const css = Bun.file("./src/client/app.css");
-      return new Response(css, { headers: { "Content-Type": "text/css" } });
-    },
-    "/src/*": async (req) => {
-      const path = new URL(req.url).pathname.slice("/src/".length);
-      const filePath = `./src/${path}`;
-      const file = Bun.file(filePath);
-      if (await file.exists()) {
-        const contentType =
-          filePath.endsWith(".ts") || filePath.endsWith(".tsx")
-            ? "application/javascript"
-            : filePath.endsWith(".css")
-              ? "text/css"
-              : "text/plain";
-        return new Response(file, { headers: { "Content-Type": contentType } });
-      }
-      return new Response("Not Found", { status: 404 });
-    },
-    "/api/report": async () => {
-      return Response.json(reportData);
-    },
-    "/api/approve": async (req) => {
-      try {
-        const body = await req.json();
-        const { id, retry, image } = body as { id: string; retry: number; image: string };
+export async function startServer(options: ServerOptions = {}): Promise<void> {
+  const port = options.port ?? 3000;
+  reportData.screenshotDir = options.screenshotDir ?? "./screenshots";
+  reportPath = options.reportPath ?? "./report.json";
 
-        const test = reportData.tests[id];
-        if (test) {
-          if (!test.approved) test.approved = {};
-          (test.approved as Record<string, number>)[image] = retry;
-          await saveReport();
+  // Resolve static assets (index.html, dist/) relative to the package directory,
+  // while user files (report.json, screenshots/) resolve relative to cwd.
+  const packageDir = options.staticDir ?? import.meta.dir;
 
-          const actualUrl = test.results?.[retry]?.images?.[image]?.actual;
-          if (actualUrl && test.location?.file) {
-            const actualPath = actualUrl.replace("/screenshots/", `${reportData.screenshotDir}/`);
-            const snapshotPath = `${test.location.file}-snapshots/${image}-${test.browser}-${process.platform}.png`;
-            try {
-              await Bun.write(snapshotPath, Bun.file(actualPath));
-              console.log(`  ✔ Updated baseline: ${snapshotPath}`);
-            } catch (e) {
-              console.error(`  ✗ Failed to update baseline: ${e}`);
-            }
-          }
+  await loadReport();
+  await loadOfflineReports();
 
-          console.log(`  ✔ Approved [${test.browser}] ${test.testName} — ${image}`);
+  Bun.serve({
+    port,
+    routes: {
+      "/": (req, server) => {
+        if (server.upgrade(req)) return;
+        const html = Bun.file(join(packageDir, "..", "index.html"));
+        return new Response(html, { headers: { "Content-Type": "text/html" } });
+      },
+      "/src/client/app.css": async () => {
+        const css = Bun.file("./src/client/app.css");
+        return new Response(css, { headers: { "Content-Type": "text/css" } });
+      },
+      "/src/*": async (req) => {
+        const path = new URL(req.url).pathname.slice("/src/".length);
+        const filePath = `./src/${path}`;
+        const file = Bun.file(filePath);
+        if (await file.exists()) {
+          const contentType =
+            filePath.endsWith(".ts") || filePath.endsWith(".tsx")
+              ? "application/javascript"
+              : filePath.endsWith(".css")
+                ? "text/css"
+                : "text/plain";
+          return new Response(file, { headers: { "Content-Type": contentType } });
         }
+        return new Response("Not Found", { status: 404 });
+      },
+      "/api/report": async () => {
+        return Response.json(reportData);
+      },
+      "/api/approve": async (req) => {
+        try {
+          const body = await req.json();
+          const { id, retry, image } = body as { id: string; retry: number; image: string };
 
-        return Response.json({ success: true });
-      } catch {
-        return Response.json({ success: false, error: "Invalid request" }, { status: 400 });
-      }
-    },
-    "/api/approve-all": async () => {
-      let approvedCount = 0;
-      const baselineUpdates: Promise<void>[] = [];
+          const test = reportData.tests[id];
+          if (test) {
+            if (!test.approved) test.approved = {};
+            (test.approved as Record<string, number>)[image] = retry;
+            await saveReport();
 
-      Object.values(reportData.tests).forEach((test) => {
-        if (!test?.results) return;
-        test.approved = {};
-        const lastRetry = test.results.length - 1;
-        const lastResult = test.results[lastRetry];
-        if (!lastResult?.images) return;
-        Object.keys(lastResult.images).forEach((imageName) => {
-          (test.approved as Record<string, number>)[imageName] = lastRetry;
-          approvedCount++;
+            const actualUrl = test.results?.[retry]?.images?.[image]?.actual;
+            if (actualUrl && test.location?.file) {
+              const actualPath = actualUrl.replace("/screenshots/", `${reportData.screenshotDir}/`);
+              const snapshotPath = `${test.location.file}-snapshots/${image}-${test.browser}-${process.platform}.png`;
+              try {
+                await Bun.write(snapshotPath, Bun.file(actualPath));
+                console.log(`  ✔ Updated baseline: ${snapshotPath}`);
+              } catch (e) {
+                console.error(`  ✗ Failed to update baseline: ${e}`);
+              }
+            }
 
-          const actualUrl = lastResult.images?.[imageName]?.actual;
-          if (actualUrl && test.location?.file) {
-            const actualPath = actualUrl.replace("/screenshots/", `${reportData.screenshotDir}/`);
-            const snapshotPath = `${test.location.file}-snapshots/${imageName}-${test.browser}-${process.platform}.png`;
-            baselineUpdates.push(
-              Bun.write(snapshotPath, Bun.file(actualPath))
-                .then(() => {
-                  console.log(`  ✔ Updated baseline: ${snapshotPath}`);
-                })
-                .catch((e) => {
-                  console.error(`  ✗ Failed to update baseline: ${e}`);
-                }),
-            );
+            console.log(`  ✔ Approved [${test.browser}] ${test.testName} — ${image}`);
           }
-        });
-      });
 
-      await saveReport();
-      await Promise.all(baselineUpdates);
-      console.log(`  ✔ Approved all — ${approvedCount} image(s)`);
-      return Response.json({ success: true });
-    },
-    "/api/images/*": async (req) => {
-      const path = new URL(req.url).pathname.slice("/api/images/".length);
-      const imagePath = `./images/${path}`;
-      const file = Bun.file(imagePath);
-      if (await file.exists()) {
-        return new Response(file);
-      }
-      return Response.json({ error: "Image not found" }, { status: 404 });
-    },
-    "/screenshots/*": async (req) => {
-      const path = new URL(req.url).pathname.slice("/screenshots/".length);
-      const screenshotPath = `${reportData.screenshotDir}/${path}`;
-      const file = Bun.file(screenshotPath);
-      if (await file.exists()) {
-        return new Response(file);
-      }
-      return Response.json({ error: "Screenshot not found" }, { status: 404 });
-    },
-    "/dist/*": async (req) => {
-      const path = new URL(req.url).pathname.slice("/dist/".length);
-      const filePath = `./dist/${path}`;
-      const file = Bun.file(filePath);
-      if (await file.exists()) {
-        const contentType = filePath.endsWith(".css")
-          ? "text/css"
-          : filePath.endsWith(".js")
-            ? "application/javascript"
-            : filePath.endsWith(".svelte")
-              ? "text/plain"
-              : "application/octet-stream";
-        return new Response(file, { headers: { "Content-Type": contentType } });
-      }
-      return new Response("Not Found", { status: 404 });
-    },
-  },
-  websocket: {
-    open(ws) {
-      wsClients.add(ws);
-    },
-    message(_ws, message) {
-      try {
-        const msg = JSON.parse(message.toString()) as WebSocketMessage;
-        handleWebSocketMessage(msg).catch((e) => {
-          console.error("Error handling WebSocket message:", e);
-        });
-      } catch (e) {
-        console.error("Invalid WebSocket message:", e);
-      }
-    },
-    close(ws) {
-      wsClients.delete(ws);
-    },
-  },
-  development: {
-    hmr: true,
-    console: true,
-  },
-});
+          return Response.json({ success: true });
+        } catch {
+          return Response.json({ success: false, error: "Invalid request" }, { status: 400 });
+        }
+      },
+      "/api/approve-all": async () => {
+        let approvedCount = 0;
+        const baselineUpdates: Promise<void>[] = [];
 
-console.log("Creevey Reporter started at http://localhost:3000");
+        Object.values(reportData.tests).forEach((test) => {
+          if (!test?.results) return;
+          test.approved = {};
+          const lastRetry = test.results.length - 1;
+          const lastResult = test.results[lastRetry];
+          if (!lastResult?.images) return;
+          Object.keys(lastResult.images).forEach((imageName) => {
+            (test.approved as Record<string, number>)[imageName] = lastRetry;
+            approvedCount++;
+
+            const actualUrl = lastResult.images?.[imageName]?.actual;
+            if (actualUrl && test.location?.file) {
+              const actualPath = actualUrl.replace("/screenshots/", `${reportData.screenshotDir}/`);
+              const snapshotPath = `${test.location.file}-snapshots/${imageName}-${test.browser}-${process.platform}.png`;
+              baselineUpdates.push(
+                Bun.write(snapshotPath, Bun.file(actualPath))
+                  .then(() => {
+                    console.log(`  ✔ Updated baseline: ${snapshotPath}`);
+                  })
+                  .catch((e) => {
+                    console.error(`  ✗ Failed to update baseline: ${e}`);
+                  }),
+              );
+            }
+          });
+        });
+
+        await saveReport();
+        await Promise.all(baselineUpdates);
+        console.log(`  ✔ Approved all — ${approvedCount} image(s)`);
+        return Response.json({ success: true });
+      },
+      "/api/images/*": async (req) => {
+        const path = new URL(req.url).pathname.slice("/api/images/".length);
+        const imagePath = `./images/${path}`;
+        const file = Bun.file(imagePath);
+        if (await file.exists()) {
+          return new Response(file);
+        }
+        return Response.json({ error: "Image not found" }, { status: 404 });
+      },
+      "/screenshots/*": async (req) => {
+        const path = new URL(req.url).pathname.slice("/screenshots/".length);
+        const screenshotPath = `${reportData.screenshotDir}/${path}`;
+        const file = Bun.file(screenshotPath);
+        if (await file.exists()) {
+          return new Response(file);
+        }
+        return Response.json({ error: "Screenshot not found" }, { status: 404 });
+      },
+      "/dist/*": async (req) => {
+        const path = new URL(req.url).pathname.slice("/dist/".length);
+        const filePath = join(packageDir, "..", "dist", path);
+        const file = Bun.file(filePath);
+        if (await file.exists()) {
+          const contentType = filePath.endsWith(".css")
+            ? "text/css"
+            : filePath.endsWith(".js")
+              ? "application/javascript"
+              : filePath.endsWith(".svelte")
+                ? "text/plain"
+                : "application/octet-stream";
+          return new Response(file, { headers: { "Content-Type": contentType } });
+        }
+        return new Response("Not Found", { status: 404 });
+      },
+    },
+    websocket: {
+      open(ws) {
+        wsClients.add(ws);
+      },
+      message(_ws, message) {
+        try {
+          const msg = JSON.parse(message.toString()) as WebSocketMessage;
+          handleWebSocketMessage(msg).catch((e) => {
+            console.error("Error handling WebSocket message:", e);
+          });
+        } catch (e) {
+          console.error("Invalid WebSocket message:", e);
+        }
+      },
+      close(ws) {
+        wsClients.delete(ws);
+      },
+    },
+    development: {
+      hmr: true,
+      console: true,
+    },
+  });
+
+  console.log(`Creevey Reporter started at http://localhost:${port}`);
+}
+
+// Auto-start when run directly (not imported)
+if (import.meta.main) {
+  await startServer();
+}

@@ -18,9 +18,16 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: "bun src/server.ts",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: "bun src/server.ts",
+      url: "http://localhost:3000",
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: "bunx serve . --listen 3001 --no-clipboard",
+      url: "http://localhost:3001",
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
 });

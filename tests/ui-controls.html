@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="en" style="color-scheme: dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UI Controls — Screenshot Fixtures</title>
+    <link rel="stylesheet" href="/dist/index.css" />
+    <script>
+      const theme = new URLSearchParams(location.search).get("theme");
+      if (theme === "light") {
+        document.documentElement.classList.add("light");
+        document.documentElement.style.colorScheme = "light";
+      }
+    </script>
+    <style>
+      .fixture-page {
+        padding: 24px;
+        min-height: 100vh;
+        background: var(--c-surface);
+        color: var(--c-fg);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .fixture-title {
+        margin: 0 0 4px;
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--c-fg-bright);
+      }
+      .fixture-meta {
+        margin: 0 0 36px;
+        font-size: 12px;
+        color: var(--c-fg-muted);
+      }
+      .fixture-meta a {
+        color: var(--c-accent);
+      }
+      .sections-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px 48px;
+      }
+      @media (max-width: 720px) {
+        .sections-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .section {
+        margin-bottom: 0;
+      }
+      .section-label {
+        margin: 0 0 10px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--c-fg-muted);
+        border-bottom: 1px solid var(--c-edge);
+        padding-bottom: 6px;
+      }
+      .section-row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .divider {
+        grid-column: 1 / -1;
+        border: none;
+        border-top: 1px solid var(--c-edge);
+        margin: 8px 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="fixture-page">
+      <h1 class="fixture-title">UI Controls — Screenshot Fixtures</h1>
+      <p class="fixture-meta">
+        Theme: <strong id="theme-label">dark</strong> &mdash;
+        <a href="?theme=light">switch to light</a> /
+        <a href="?">switch to dark</a>
+      </p>
+
+      <div class="sections-grid">
+        <!-- ─── View Mode Switcher ──────────────────────────── -->
+        <div class="section" data-section="view-mode-switcher">
+          <div class="section-label">View Mode Switcher</div>
+          <div class="section-row">
+            <!-- First button active -->
+            <div class="flex shrink-0">
+              <button
+                class="px-2.5 py-1 border text-xs cursor-pointer transition-all rounded-l bg-accent border-accent text-white font-medium shadow-inner"
+              >
+                Slide
+              </button>
+              <button
+                class="px-2.5 py-1 border text-xs cursor-pointer transition-all bg-surface-input border-edge text-fg-muted"
+              >
+                Side by side
+              </button>
+              <button
+                class="px-2.5 py-1 border text-xs cursor-pointer transition-all bg-surface-input border-edge text-fg-muted"
+              >
+                Swap
+              </button>
+              <button
+                class="px-2.5 py-1 border text-xs cursor-pointer transition-all rounded-r bg-surface-input border-edge text-fg-muted"
+              >
+                Blend
+              </button>
+            </div>
+            <!-- Second button active -->
+            <div class="flex shrink-0">
+              <button
+                class="px-2.5 py-1 border text-xs cursor-pointer transition-all rounded-l bg-surface-input border-edge text-fg-muted"
+              >
+                Slide
+              </button>
+              <button
+                class="px-2.5 py-1 border text-xs cursor-pointer transition-all bg-accent border-accent text-white font-medium shadow-inner"
+              >
+                Side by side
+              </button>
+              <button
+                class="px-2.5 py-1 border text-xs cursor-pointer transition-all bg-surface-input border-edge text-fg-muted"
+              >
+                Swap
+              </button>
+              <button
+                class="px-2.5 py-1 border text-xs cursor-pointer transition-all rounded-r bg-surface-input border-edge text-fg-muted"
+              >
+                Blend
+              </button>
+            </div>
+            <!-- Last button active -->
+            <div class="flex shrink-0">
+              <button
+                class="px-2.5 py-1 border text-xs cursor-pointer transition-all rounded-l bg-surface-input border-edge text-fg-muted"
+              >
+                Slide
+              </button>
+              <button
+                class="px-2.5 py-1 border text-xs cursor-pointer transition-all bg-surface-input border-edge text-fg-muted"
+              >
+                Side by side
+              </button>
+              <button
+                class="px-2.5 py-1 border text-xs cursor-pointer transition-all bg-surface-input border-edge text-fg-muted"
+              >
+                Swap
+              </button>
+              <button
+                class="px-2.5 py-1 border text-xs cursor-pointer transition-all rounded-r bg-accent border-accent text-white font-medium shadow-inner"
+              >
+                Blend
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Status Indicators ──────────────────────────── -->
+        <div class="section" data-section="status-indicators">
+          <div class="section-label">Status Indicators</div>
+          <div class="section-row">
+            <div class="flex gap-3 items-center flex-wrap">
+              <span class="flex items-center gap-1 text-xs text-fg">
+                <span class="size-2 rounded-full inline-block shrink-0 bg-success"></span>success
+              </span>
+              <span class="flex items-center gap-1 text-xs text-fg">
+                <span class="size-2 rounded-full inline-block shrink-0 bg-error"></span>failed
+              </span>
+              <span class="flex items-center gap-1 text-xs text-fg">
+                <span class="size-2 rounded-full inline-block shrink-0 bg-warning"></span>pending
+              </span>
+              <span class="flex items-center gap-1 text-xs text-fg">
+                <span
+                  class="size-2 rounded-full inline-block shrink-0 bg-warning animate-pulse-dot"
+                ></span
+                >running
+              </span>
+              <span class="flex items-center gap-1 text-xs text-fg">
+                <span class="size-2 rounded-full inline-block shrink-0 bg-info"></span>approved
+              </span>
+              <span class="flex items-center gap-1 text-xs text-fg">
+                <span class="size-2 rounded-full inline-block shrink-0 bg-fg-muted"></span>unknown
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Status Filter Buttons ──────────────────────── -->
+        <div class="section" data-section="status-filter-buttons">
+          <div class="section-label">Status Filter Buttons</div>
+          <div class="section-row">
+            <!-- Default state -->
+            <div class="flex gap-2 text-xs tabular-nums">
+              <button
+                class="flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge"
+              >
+                <span class="size-2 rounded-full inline-block shrink-0 bg-success"></span>
+                <span>3</span>
+              </button>
+              <button
+                class="flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge"
+              >
+                <span class="size-2 rounded-full inline-block shrink-0 bg-error"></span>
+                <span>2</span>
+              </button>
+              <button
+                class="flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge"
+              >
+                <span class="size-2 rounded-full inline-block shrink-0 bg-warning"></span>
+                <span>1</span>
+              </button>
+              <button
+                class="flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge"
+              >
+                <span class="size-2 rounded-full inline-block shrink-0 bg-info"></span>
+                <span>5</span>
+              </button>
+            </div>
+            <!-- Active (failed) state -->
+            <div class="flex gap-2 text-xs tabular-nums">
+              <button
+                class="flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge"
+              >
+                <span class="size-2 rounded-full inline-block shrink-0 bg-success"></span>
+                <span>3</span>
+              </button>
+              <button
+                class="flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-accent! rounded-sm text-fg cursor-pointer text-xs bg-accent/15"
+              >
+                <span class="size-2 rounded-full inline-block shrink-0 bg-error"></span>
+                <span>2</span>
+              </button>
+              <button
+                class="flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge"
+              >
+                <span class="size-2 rounded-full inline-block shrink-0 bg-warning"></span>
+                <span>1</span>
+              </button>
+              <button
+                class="flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge"
+              >
+                <span class="size-2 rounded-full inline-block shrink-0 bg-info"></span>
+                <span>5</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Filter Input ────────────────────────────────── -->
+        <div class="section" data-section="filter-input">
+          <div class="section-label">Filter Input</div>
+          <div class="section-row" style="max-width: 270px">
+            <!-- Empty state -->
+            <input
+              type="text"
+              class="w-full px-2.5 py-1.5 bg-surface-input border border-edge rounded text-fg text-ui outline-none transition-colors placeholder:text-fg-muted"
+              placeholder="Filter tests… (status:failed)"
+              aria-label="Filter tests empty"
+            />
+            <!-- With value + focused ring -->
+            <input
+              type="text"
+              class="w-full px-2.5 py-1.5 bg-surface-input border border-accent rounded text-fg text-ui outline-none transition-colors"
+              value="status:failed"
+              aria-label="Filter tests with value"
+              style="box-shadow: 0 0 0 2px var(--c-accent)"
+            />
+          </div>
+        </div>
+
+        <!-- ─── Tree Items ──────────────────────────────────── -->
+        <div class="section" data-section="tree-items">
+          <div class="section-label">Tree Items</div>
+          <div
+            style="
+              width: 270px;
+              background: var(--c-surface-alt);
+              border: 1px solid var(--c-edge);
+              border-radius: 4px;
+              overflow: hidden;
+            "
+          >
+            <!-- Suite — closed -->
+            <div
+              class="flex items-center py-1 cursor-pointer transition-colors select-none gap-1 hover:bg-surface-hover"
+              style="padding-left: 16px; padding-right: 16px"
+            >
+              <span class="text-[9px] text-fg-muted shrink-0 w-3 text-center" aria-hidden="true"
+                >▶</span
+              >
+              <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis"
+                >Suite: Login</span
+              >
+            </div>
+            <!-- Suite — open -->
+            <div
+              class="flex items-center py-1 cursor-pointer transition-colors select-none gap-1 hover:bg-surface-hover"
+              style="padding-left: 16px; padding-right: 16px"
+            >
+              <span
+                class="text-[9px] transition-transform text-fg-muted shrink-0 w-3 text-center rotate-90"
+                aria-hidden="true"
+                >▶</span
+              >
+              <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis"
+                >Suite: Register</span
+              >
+            </div>
+            <!-- Test — selected + failed -->
+            <div
+              class="flex items-center py-1 cursor-pointer transition-colors select-none gap-1 bg-surface-selected"
+              style="padding-left: 32px; padding-right: 16px"
+            >
+              <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis"
+                >form validation</span
+              >
+              <span class="size-2 rounded-full inline-block shrink-0 bg-error"></span>
+            </div>
+            <!-- Test — focused + pending -->
+            <div
+              class="flex items-center py-1 cursor-pointer transition-colors select-none gap-1 outline outline-1 outline-accent -outline-offset-1"
+              style="padding-left: 32px; padding-right: 16px"
+            >
+              <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis"
+                >password reset</span
+              >
+              <span class="size-2 rounded-full inline-block shrink-0 bg-warning"></span>
+            </div>
+            <!-- Test — success -->
+            <div
+              class="flex items-center py-1 cursor-pointer transition-colors select-none gap-1 hover:bg-surface-hover"
+              style="padding-left: 32px; padding-right: 16px"
+            >
+              <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis"
+                >profile settings</span
+              >
+              <span class="size-2 rounded-full inline-block shrink-0 bg-success"></span>
+            </div>
+            <!-- Test — approved -->
+            <div
+              class="flex items-center py-1 cursor-pointer transition-colors select-none gap-1 hover:bg-surface-hover"
+              style="padding-left: 32px; padding-right: 16px"
+            >
+              <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis"
+                >avatar upload</span
+              >
+              <span class="size-2 rounded-full inline-block shrink-0 bg-info"></span>
+            </div>
+            <!-- Test — unknown (no status) -->
+            <div
+              class="flex items-center py-1 cursor-pointer transition-colors select-none gap-1 hover:bg-surface-hover"
+              style="padding-left: 32px; padding-right: 16px"
+            >
+              <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis"
+                >logout button</span
+              >
+              <span class="size-2 rounded-full inline-block shrink-0 bg-fg-muted"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Action Buttons ─────────────────────────────── -->
+        <div class="section" data-section="action-buttons">
+          <div class="section-label">Action Buttons</div>
+          <div class="section-row">
+            <!-- Start / Stop -->
+            <div class="flex gap-2">
+              <button
+                class="size-9 flex items-center justify-center bg-surface-input border border-edge rounded text-success cursor-pointer text-sm transition-colors hover:bg-surface-hover"
+                aria-label="Start tests"
+              >
+                &#9654;
+              </button>
+              <button
+                class="size-9 flex items-center justify-center bg-surface-input border border-edge rounded text-error cursor-pointer text-sm transition-colors hover:bg-surface-hover"
+                aria-label="Stop tests"
+              >
+                &#9632;
+              </button>
+            </div>
+            <!-- Approve (enabled) + Approve All -->
+            <div class="flex gap-2" style="width: 270px">
+              <button
+                class="flex-1 px-4 py-1.5 border border-success rounded text-ui cursor-pointer transition-colors text-center bg-success text-white font-semibold hover:brightness-110"
+              >
+                Approve ›
+              </button>
+              <button
+                class="flex-1 px-4 py-1.5 border border-edge rounded text-ui cursor-pointer transition-colors text-center bg-transparent text-fg hover:bg-surface-hover"
+              >
+                Approve All
+              </button>
+            </div>
+            <!-- Approve (disabled) + Next -->
+            <div class="flex gap-2" style="width: 270px">
+              <button
+                class="flex-1 px-4 py-1.5 border border-success rounded text-ui cursor-not-allowed transition-colors text-center bg-success text-white font-semibold opacity-40"
+                disabled
+              >
+                Approve ›
+              </button>
+              <button
+                class="flex-1 px-4 py-1.5 border border-edge rounded text-ui cursor-pointer transition-colors text-center bg-transparent text-fg hover:bg-surface-hover"
+                disabled
+                style="opacity: 0.4; cursor: not-allowed"
+              >
+                Next ›
+              </button>
+            </div>
+            <!-- Next (enabled) -->
+            <div class="flex gap-2" style="width: 270px">
+              <button
+                class="flex-1 px-4 py-1.5 border border-edge rounded text-ui cursor-pointer transition-colors text-center bg-transparent text-fg hover:bg-surface-hover"
+              >
+                Next ›
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Image Name Tabs ────────────────────────────── -->
+        <div class="section" data-section="image-name-tabs">
+          <div class="section-label">Image Name Tabs</div>
+          <div class="section-row">
+            <!-- One image -->
+            <div class="flex gap-1 flex-wrap">
+              <button
+                class="px-2.5 py-1 bg-accent border border-accent text-white rounded-sm text-xs cursor-pointer transition-colors"
+              >
+                app
+              </button>
+            </div>
+            <!-- Multiple: first active -->
+            <div class="flex gap-1 flex-wrap">
+              <button
+                class="px-2.5 py-1 bg-accent border border-accent text-white rounded-sm text-xs cursor-pointer transition-colors"
+              >
+                app
+              </button>
+              <button
+                class="px-2.5 py-1 bg-surface-input border border-edge rounded-sm text-fg text-xs cursor-pointer transition-colors"
+              >
+                mobile
+              </button>
+              <button
+                class="px-2.5 py-1 bg-surface-input border border-error rounded-sm text-fg text-xs cursor-pointer transition-colors"
+              >
+                tablet
+              </button>
+              <button
+                class="px-2.5 py-1 bg-surface-input border border-success rounded-sm text-fg text-xs cursor-pointer transition-colors"
+              >
+                desktop
+              </button>
+            </div>
+            <!-- Multiple: middle active -->
+            <div class="flex gap-1 flex-wrap">
+              <button
+                class="px-2.5 py-1 bg-surface-input border border-edge rounded-sm text-fg text-xs cursor-pointer transition-colors"
+              >
+                app
+              </button>
+              <button
+                class="px-2.5 py-1 bg-accent border border-accent text-white rounded-sm text-xs cursor-pointer transition-colors"
+              >
+                mobile
+              </button>
+              <button
+                class="px-2.5 py-1 bg-surface-input border border-error rounded-sm text-fg text-xs cursor-pointer transition-colors"
+              >
+                tablet
+              </button>
+              <button
+                class="px-2.5 py-1 bg-surface-input border border-success rounded-sm text-fg text-xs cursor-pointer transition-colors"
+              >
+                desktop
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Toggle Switch ──────────────────────────────── -->
+        <div class="section" data-section="toggle-switch">
+          <div class="section-label">Toggle Switch</div>
+          <div class="flex gap-6 items-center">
+            <!-- Checked (moon) -->
+            <div class="flex flex-col items-center gap-1.5">
+              <label class="relative inline-block w-12 h-6 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked
+                  class="opacity-0 w-0 h-0 absolute"
+                  aria-label="Toggle theme checked"
+                />
+                <span
+                  class="absolute inset-0 bg-surface-input border border-edge rounded-full transition-colors"
+                >
+                  <span
+                    class="absolute top-0.5 left-0.5 size-5 flex items-center justify-center bg-fg rounded-full transition-transform translate-x-6"
+                  >
+                    <svg
+                      class="block size-3 text-surface"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"
+                      />
+                    </svg>
+                  </span>
+                </span>
+              </label>
+              <span class="text-xs text-fg-muted">checked</span>
+            </div>
+            <!-- Unchecked (sun) -->
+            <div class="flex flex-col items-center gap-1.5">
+              <label class="relative inline-block w-12 h-6 cursor-pointer">
+                <input
+                  type="checkbox"
+                  class="opacity-0 w-0 h-0 absolute"
+                  aria-label="Toggle theme unchecked"
+                />
+                <span
+                  class="absolute inset-0 bg-surface-input border border-edge rounded-full transition-colors"
+                >
+                  <span
+                    class="absolute top-0.5 left-0.5 size-5 flex items-center justify-center bg-fg rounded-full transition-transform"
+                  >
+                    <svg
+                      class="block size-3 text-surface"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M12 2.25a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-1.5 0V3a.75.75 0 0 1 .75-.75ZM7.5 12a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM18.894 6.166a.75.75 0 0 0-1.06-1.06l-1.591 1.59a.75.75 0 1 0 1.06 1.061l1.591-1.59ZM21.75 12a.75.75 0 0 1-.75.75h-2.25a.75.75 0 0 1 0-1.5H21a.75.75 0 0 1 .75.75ZM17.834 18.894a.75.75 0 0 0 1.06-1.06l-1.59-1.591a.75.75 0 1 0-1.061 1.06l1.59 1.591ZM12 18a.75.75 0 0 1 .75.75V21a.75.75 0 0 1-1.5 0v-2.25A.75.75 0 0 1 12 18ZM7.758 17.303a.75.75 0 0 0-1.061-1.06l-1.591 1.59a.75.75 0 0 0 1.06 1.061l1.591-1.59ZM6 12a.75.75 0 0 1-.75.75H3a.75.75 0 0 1 0-1.5h2.25A.75.75 0 0 1 6 12ZM6.697 7.757a.75.75 0 0 0 1.06-1.06l-1.59-1.591a.75.75 0 0 0-1.061 1.06l1.59 1.591Z"
+                      />
+                    </svg>
+                  </span>
+                </span>
+              </label>
+              <span class="text-xs text-fg-muted">unchecked</span>
+            </div>
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <!-- ─── Update Mode Badge ──────────────────────────── -->
+        <div class="section" data-section="update-mode-badge">
+          <div class="section-label">Update Mode Badge</div>
+          <div class="section-row">
+            <div style="display: inline-block">
+              <div
+                class="text-xs px-2 py-1 text-success bg-success/10 rounded-sm"
+                style="display: inline-block"
+              >
+                Review and approve screenshots
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Empty States ───────────────────────────────── -->
+        <div class="section" data-section="empty-states">
+          <div class="section-label">Empty States</div>
+          <div class="section-row">
+            <div
+              class="flex items-center justify-center text-fg-muted text-base"
+              style="
+                height: 80px;
+                background: var(--c-surface-panel);
+                border: 1px solid var(--c-edge);
+                border-radius: 4px;
+              "
+            >
+              No image to display
+            </div>
+            <div
+              class="py-6 px-4 text-center text-fg-muted text-ui"
+              style="
+                background: var(--c-surface-alt);
+                border: 1px solid var(--c-edge);
+                border-radius: 4px;
+              "
+            >
+              No tests match filter
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Sidebar Panel (composed) ──────────────────── -->
+        <div class="section" data-section="sidebar-panel" style="grid-column: 1 / -1">
+          <div class="section-label">Sidebar Panel (composed)</div>
+          <div style="width: 300px">
+            <div
+              class="bg-surface-alt border border-edge flex flex-col overflow-hidden"
+              style="border-radius: 4px"
+            >
+              <!-- Header -->
+              <div class="p-4 border-b border-edge bg-surface-alt shrink-0">
+                <div class="flex justify-between items-start">
+                  <div>
+                    <h1 class="m-0 mb-2 text-base font-normal text-fg-bright">Creevey Reporter</h1>
+                    <div
+                      class="text-xs mb-2 px-2 py-1 text-success bg-success/10 rounded-sm"
+                      style="display: inline-block"
+                    >
+                      Review and approve screenshots
+                    </div>
+                    <div class="flex gap-2 text-xs mb-3 tabular-nums">
+                      <button
+                        class="flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge"
+                      >
+                        <span class="size-2 rounded-full inline-block shrink-0 bg-success"></span>
+                        <span>3</span>
+                      </button>
+                      <button
+                        class="flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-accent! rounded-sm text-fg cursor-pointer text-xs bg-accent/15"
+                      >
+                        <span class="size-2 rounded-full inline-block shrink-0 bg-error"></span>
+                        <span>2</span>
+                      </button>
+                      <button
+                        class="flex items-center gap-1 px-2 py-1 min-h-[28px] bg-transparent border border-transparent rounded-sm text-fg cursor-pointer text-xs transition-colors hover:border-edge"
+                      >
+                        <span class="size-2 rounded-full inline-block shrink-0 bg-warning"></span>
+                        <span>1</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="mt-1">
+                    <button
+                      class="size-9 flex items-center justify-center bg-surface-input border border-edge rounded text-success cursor-pointer text-sm transition-colors hover:bg-surface-hover"
+                      aria-label="Start tests"
+                    >
+                      &#9654;
+                    </button>
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  class="w-full px-2.5 py-1.5 bg-surface-input border border-edge rounded text-fg text-ui outline-none transition-colors placeholder:text-fg-muted"
+                  placeholder="Filter tests… (status:failed)"
+                  aria-label="Filter tests"
+                />
+              </div>
+              <!-- Tree -->
+              <div
+                class="flex-1 overscroll-y-contain py-1"
+                style="overflow-y: auto; max-height: 200px"
+              >
+                <div
+                  class="flex items-center py-1 cursor-pointer transition-colors select-none gap-1 hover:bg-surface-hover"
+                  style="padding-left: 16px; padding-right: 16px"
+                >
+                  <span
+                    class="text-[9px] transition-transform text-fg-muted shrink-0 w-3 text-center rotate-90"
+                    aria-hidden="true"
+                    >▶</span
+                  >
+                  <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis"
+                    >Suite: Login</span
+                  >
+                </div>
+                <div
+                  class="flex items-center py-1 cursor-pointer transition-colors select-none gap-1 bg-surface-selected"
+                  style="padding-left: 32px; padding-right: 16px"
+                >
+                  <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis"
+                    >form validation</span
+                  >
+                  <span class="size-2 rounded-full inline-block shrink-0 bg-error"></span>
+                </div>
+                <div
+                  class="flex items-center py-1 cursor-pointer transition-colors select-none gap-1 outline outline-1 outline-accent -outline-offset-1"
+                  style="padding-left: 32px; padding-right: 16px"
+                >
+                  <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis"
+                    >password reset</span
+                  >
+                  <span class="size-2 rounded-full inline-block shrink-0 bg-warning"></span>
+                </div>
+                <div
+                  class="flex items-center py-1 cursor-pointer transition-colors select-none gap-1 hover:bg-surface-hover"
+                  style="padding-left: 32px; padding-right: 16px"
+                >
+                  <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis"
+                    >profile settings</span
+                  >
+                  <span class="size-2 rounded-full inline-block shrink-0 bg-success"></span>
+                </div>
+                <div
+                  class="flex items-center py-1 cursor-pointer transition-colors select-none gap-1 hover:bg-surface-hover"
+                  style="padding-left: 16px; padding-right: 16px"
+                >
+                  <span class="text-[9px] text-fg-muted shrink-0 w-3 text-center" aria-hidden="true"
+                    >▶</span
+                  >
+                  <span class="flex-1 text-ui whitespace-nowrap overflow-hidden text-ellipsis"
+                    >Suite: Register</span
+                  >
+                </div>
+              </div>
+              <!-- Footer -->
+              <div class="py-3 px-4 border-t border-edge bg-surface-alt flex gap-2 shrink-0">
+                <button
+                  class="flex-1 px-4 py-1.5 border border-success rounded text-ui cursor-pointer transition-colors text-center bg-success text-white font-semibold hover:brightness-110"
+                >
+                  Approve ›
+                </button>
+                <button
+                  class="flex-1 px-4 py-1.5 border border-edge rounded text-ui cursor-pointer transition-colors text-center bg-transparent text-fg hover:bg-surface-hover"
+                >
+                  Approve All
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- /sections-grid -->
+    </div>
+    <!-- /fixture-page -->
+
+    <script>
+      const lbl = document.getElementById("theme-label");
+      if (lbl && document.documentElement.classList.contains("light")) {
+        lbl.textContent = "light";
+      }
+    </script>
+  </body>
+</html>

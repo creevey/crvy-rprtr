@@ -304,11 +304,13 @@ Bun.serve({
             const actualPath = actualUrl.replace("/screenshots/", `${reportData.screenshotDir}/`);
             const snapshotPath = `${test.location.file}-snapshots/${imageName}-${test.browser}-${process.platform}.png`;
             baselineUpdates.push(
-              Bun.write(snapshotPath, Bun.file(actualPath)).then(() => {
-                console.log(`  ✔ Updated baseline: ${snapshotPath}`);
-              }).catch((e) => {
-                console.error(`  ✗ Failed to update baseline: ${e}`);
-              }),
+              Bun.write(snapshotPath, Bun.file(actualPath))
+                .then(() => {
+                  console.log(`  ✔ Updated baseline: ${snapshotPath}`);
+                })
+                .catch((e) => {
+                  console.error(`  ✗ Failed to update baseline: ${e}`);
+                }),
             );
           }
         });

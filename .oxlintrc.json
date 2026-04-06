@@ -1,0 +1,51 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript"],
+  "ignorePatterns": ["dist/**", "node_modules/**", "*.d.ts"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "warn",
+    "perf": "error"
+  },
+  "options": {
+    "typeAware": true,
+    "typeCheck": true,
+    "denyWarnings": false
+  },
+  "rules": {
+    "typescript/no-dynamic-delete": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/no-var-requires": "error",
+    "typescript/no-wrapper-object-types": "error",
+    "typescript/use-unknown-in-catch-callback-variable": "error",
+    "no-param-reassign": "error",
+    "eqeqeq": "error"
+  },
+  "overrides": [
+    {
+      "files": ["tests/**/*.ts"],
+      "rules": {
+        "max-lines-per-function": "off",
+        "max-lines": "off",
+        "no-await-in-loop": "off"
+      }
+    },
+    {
+      "files": ["build.ts"],
+      "rules": {
+        "typescript/explicit-function-return-type": "off"
+      }
+    },
+    {
+      "files": ["**/*.svelte"],
+      "rules": {
+        "max-lines": "off",
+        "max-lines-per-function": "off",
+        "typescript/explicit-function-return-type": "off"
+      }
+    }
+  ]
+}

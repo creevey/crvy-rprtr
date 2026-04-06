@@ -38,6 +38,9 @@ screenshots/
 .cache
 *.tsbuildinfo
 
+# reports
+reports/
+
 # IntelliJ based IDEs
 .idea
 

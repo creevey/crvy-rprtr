@@ -50,7 +50,9 @@
     "lint": "oxlint",
     "fmt": "oxfmt --write",
     "typecheck": "tsc --noEmit",
-    "test": "bun run build && bunx playwright test",
+    "test:bun": "bun test tests/offline.test.ts",
+    "test:playwright": "bun run build && bunx playwright test",
+    "test": "bun run test:bun && bun run test:playwright",
     "test:ui": "bun run build && bunx playwright test --ui",
     "example": "cd examples/playwright && bunx playwright test",
     "prepublishOnly": "bun run build"

@@ -14,8 +14,13 @@
     flattenSuite,
     getSuiteByPath,
     hasScreenshots,
+    recalcSuiteStatuses,
+    recalcAllSuiteStatuses,
+    treeifyTests,
+    mergeTreeState,
     type CreeveyViewFilter,
-  } from './helpers';
+  } from './helpers';  
+  import type { TestData } from '../types';
   import { getViewMode } from './viewMode';
   import Sidebar from './components/Sidebar.svelte';
   import ResultsPage from './components/ResultsPage.svelte';
@@ -228,7 +233,10 @@
       const allApproved = Object.keys(result.images).every(
         (name) => openedTest!.approved?.[name] === retry - 1,
       );
-      if (allApproved) openedTest.status = 'approved';
+      if (allApproved) {
+        openedTest.status = 'approved';
+        recalcSuiteStatuses(tests, getTestPath(openedTest));
+      }
     }
   }
 
@@ -255,6 +263,7 @@
       );
       test.status = 'approved';
     });
+    recalcAllSuiteStatuses(tests);
   }
 
   function handleStart(): void {}
@@ -282,6 +291,35 @@
   function handleThemeChange(dark: boolean): void {
     isDark = dark;
   }
+
+  $effect(() => {
+    const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${wsProtocol}//${location.host}`);
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const refresh = async (): Promise<void> => {
+      try {
+        const response = await fetch('/api/report');
+        const data = (await response.json()) as { tests: Record<string, TestData> };
+        const newTree = treeifyTests(data.tests);
+        mergeTreeState(newTree, tests);
+        tests = newTree;
+      } catch {
+        // ignore transient fetch errors
+      }
+    };
+
+    ws.onmessage = () => {
+      clearTimeout(timer);
+      timer = setTimeout(refresh, 50);
+    };
+
+    return () => {
+      ws.close();
+      clearTimeout(timer);
+    };
+  });
 </script>
 
 <div class="flex h-dvh relative max-md:flex-col overflow-hidden">

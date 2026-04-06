@@ -1,0 +1,7 @@
+# Git LFS configuration for Playwright screenshot baselines
+# Tracks all PNG files in Playwright snapshot directories
+# Playwright snapshot files
+**/*.spec.ts-snapshots/*.png filter=lfs diff=lfs merge=lfs -text
+# General screenshot storage
+screenshots/** filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text

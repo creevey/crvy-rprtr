@@ -4,22 +4,21 @@
   "workspaces": {
     "": {
       "name": "creevey-reporter",
-      "dependencies": {
-        "@tailwindcss/postcss": "^4.2.2",
-        "postcss": "^8.5.8",
-        "svelte": "^5.54.0",
-        "tailwindcss": "^4.2.2",
-      },
       "devDependencies": {
         "@playwright/test": "^1.58.2",
+        "@tailwindcss/postcss": "^4.2.2",
         "@types/bun": "latest",
         "esbuild": "^0.27.4",
         "esbuild-svelte": "^0.9.4",
         "oxfmt": "^0.41.0",
         "oxlint": "^1.56.0",
+        "postcss": "^8.5.8",
+        "svelte": "^5.54.0",
+        "tailwindcss": "^4.2.2",
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
+        "@playwright/test": ">=1.40",
         "typescript": "^5",
       },
     },

@@ -23,6 +23,9 @@ test-results/
 # runtime output
 screenshots/
 
+# BUT: DO NOT ignore baseline snapshots - they're stored in LFS
+!tests/**/*.spec.ts-snapshots/
+
 # dotenv environment variable files
 .env
 .env.development.local

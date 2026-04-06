@@ -230,6 +230,37 @@ export function updateTestStatus(
     .reduce(calcStatus);
 }
 
+export function recalcSuiteStatuses(root: CreeveySuite, testPath: string[]): void {
+  const ancestorPaths = testPath
+    .slice(0, -1)
+    .map((_, index, tokens) => tokens.slice(0, tokens.length - index));
+  for (const parentPath of ancestorPaths) {
+    const parentSuite = getSuiteByPath(root, parentPath);
+    if (parentSuite && !isTest(parentSuite)) {
+      parentSuite.status = Object.values(parentSuite.children)
+        .filter(isDefined)
+        .map(({ status }) => status)
+        .reduce(calcStatus);
+    }
+  }
+  root.status = Object.values(root.children)
+    .filter(isDefined)
+    .map(({ status }) => status)
+    .reduce(calcStatus);
+}
+
+export function recalcAllSuiteStatuses(suite: CreeveySuite): void {
+  for (const child of Object.values(suite.children).filter(isDefined)) {
+    if (!isTest(child)) {
+      recalcAllSuiteStatuses(child);
+    }
+  }
+  suite.status = Object.values(suite.children)
+    .filter(isDefined)
+    .map(({ status }) => status)
+    .reduce(calcStatus);
+}
+
 export function removeTests(suite: CreeveySuite, path: string[]): void {
   const title = path.shift();
   if (!title) return;
@@ -292,4 +323,69 @@ export function hasScreenshots(item: CreeveySuite | CreeveyTest): boolean {
   return Object.values(item.children)
     .filter(isDefined)
     .some((child) => hasScreenshots(child as CreeveySuite | CreeveyTest));
+}
+
+export function treeifyTests(testsById: Record<string, TestData>): CreeveySuite {
+  const rootSuite: CreeveySuite = {
+    path: [],
+    skip: false,
+    opened: true,
+    checked: true,
+    indeterminate: false,
+    children: {},
+  };
+
+  Object.values(testsById).forEach((test) => {
+    if (!test) return;
+
+    const titlePath = test.titlePath ?? [];
+    const browser = test.browser ?? "";
+    const title = test.title;
+
+    const pathParts: string[] = [...titlePath, title, browser].filter((p): p is string =>
+      Boolean(p),
+    );
+    const [browserName, ...testPathParts] = pathParts.reverse();
+    if (!browserName) return;
+
+    const lastSuite = testPathParts.reverse().reduce<CreeveySuite>((suite, token) => {
+      if (!suite.children[token]) {
+        suite.children[token] = {
+          path: [...suite.path, token],
+          skip: false,
+          opened: false,
+          checked: true,
+          indeterminate: false,
+          children: {},
+        };
+      }
+      const subSuite = suite.children[token] as CreeveySuite;
+      subSuite.status = calcStatus(subSuite.status, test.status);
+      suite.status = calcStatus(suite.status, subSuite.status);
+      if (!test.skip) subSuite.skip = false;
+      return subSuite;
+    }, rootSuite);
+
+    lastSuite.children[browserName] = {
+      ...test,
+      checked: true,
+    } as CreeveyTest;
+  });
+
+  return rootSuite;
+}
+
+export function mergeTreeState(target: CreeveySuite, source: CreeveySuite): void {
+  target.opened = source.opened;
+  target.checked = source.checked;
+  target.indeterminate = source.indeterminate;
+  for (const [key, targetChild] of Object.entries(target.children)) {
+    const sourceChild = source.children[key];
+    if (!targetChild || !sourceChild) continue;
+    if (!isTest(targetChild) && !isTest(sourceChild)) {
+      mergeTreeState(targetChild, sourceChild);
+    } else if (isTest(targetChild) && isTest(sourceChild)) {
+      targetChild.checked = sourceChild.checked;
+    }
+  }
 }

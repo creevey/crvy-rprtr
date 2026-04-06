@@ -1,3 +1,6 @@
+// Core types used throughout the application
+// These types serve as the single source of truth
+
 export interface Images {
   actual: string
   expect?: string
@@ -14,36 +17,6 @@ export interface Attachment {
 export interface Location {
   file: string
   line: number
-}
-
-export interface PlaywrightTestResult {
-  id: string
-  title: string
-  location: Location
-  status: 'passed' | 'failed' | 'skipped'
-  attachments: Attachment[]
-  error?: string
-  duration?: number
-}
-
-export interface WebSocketMessage {
-  type: 'test-begin' | 'test-end' | 'run-end' | 'approve' | 'sync'
-  data: unknown
-}
-
-export interface TestBeginMessage {
-  type: 'test-begin'
-  data: { id: string; title: string; location: Location }
-}
-
-export interface TestEndMessage {
-  type: 'test-end'
-  data: PlaywrightTestResult
-}
-
-export interface RunEndMessage {
-  type: 'run-end'
-  data: { status: 'passed' | 'failed' | 'skipped'; count: number }
 }
 
 export type TestStatus = 'unknown' | 'pending' | 'running' | 'failed' | 'approved' | 'success' | 'retrying'
@@ -81,26 +54,46 @@ export interface CreeveySuite {
   opened: boolean
   checked: boolean
   indeterminate: boolean
-  children: Partial<Record<string, CreeveySuite | CreeveyTest>>
+  children?: Partial<Record<string, CreeveySuite | CreeveyTest>>
 }
 
 export type ImagesViewMode = 'side-by-side' | 'swap' | 'slide' | 'blend'
+
+export interface WebSocketMessage {
+  type: 'test-begin' | 'test-end' | 'run-end' | 'approve' | 'sync'
+  data: unknown
+}
+
+export interface TestBeginMessage {
+  type: 'test-begin'
+  data: { id: string; title: string; location: Location }
+}
+
+export interface TestEndMessage {
+  type: 'test-end'
+  data: PlaywrightTestResult
+}
+
+export interface RunEndMessage {
+  type: 'run-end'
+  data: { status: 'passed' | 'failed' | 'skipped'; count: number }
+}
+
+export interface PlaywrightTestResult {
+  id: string
+  title: string
+  location: Location
+  status: 'passed' | 'failed' | 'skipped'
+  attachments: Attachment[]
+  error?: string
+  duration?: number
+}
 
 export interface CreeveyStatus {
   isRunning: boolean
   tests: Partial<Record<string, TestData>>
   browsers: string[]
   isUpdateMode: boolean
-}
-
-import { CreeveyTestSchema, safeParse } from './schemas.ts'
-
-export function isDefined<T>(value: T | null | undefined): value is T {
-  return value !== null && value !== undefined
-}
-
-export function isTest(x: unknown): x is CreeveyTest {
-  return safeParse(CreeveyTestSchema, x) !== null
 }
 
 export interface CreeveyViewFilter {
@@ -120,4 +113,31 @@ export interface OfflineReport {
   generatedAt: string
   workers: number
   events: OfflineEvent[]
+}
+
+export function isDefined<T>(value: T | null | undefined): value is T {
+  return value !== null && value !== undefined
+}
+
+export function isTest(x: unknown): x is CreeveyTest {
+  if (x === null || typeof x !== 'object') return false
+  const hasId = 'id' in x
+  const hasTitlePath = 'titlePath' in x
+  return hasId && hasTitlePath && typeof x.id === 'string' && Array.isArray(x.titlePath)
+}
+
+// Helper functions to safely work with optional children records
+export function getChildrenArray<T>(children: Partial<Record<string, T>> | undefined): T[] {
+  if (children === undefined) return []
+  return Object.values(children).filter(isDefined)
+}
+
+export function getChildrenEntries<T>(children: Partial<Record<string, T>> | undefined): [string, T][] {
+  if (children === undefined) return []
+  return Object.entries(children).filter((entry): entry is [string, T] => isDefined(entry[1]))
+}
+
+export function getChildrenKeys<T>(children: Partial<Record<string, T>> | undefined): string[] {
+  if (children === undefined) return []
+  return Object.keys(children)
 }

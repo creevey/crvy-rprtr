@@ -1,4 +1,4 @@
-import { type CreeveySuite, type CreeveyTest, type TestStatus, isTest, isDefined } from '../../types'
+import { type CreeveySuite, type CreeveyTest, type TestStatus, isTest, getChildrenArray } from '../../types'
 
 export const testStatuses: TestStatus[] = ['unknown', 'pending', 'running', 'failed', 'approved', 'success', 'retrying']
 
@@ -29,7 +29,7 @@ export function countTestsStatus(suite: CreeveySuite): {
   let failedCount = 0
   let approvedCount = 0
   let pendingCount = 0
-  const cases: (CreeveySuite | CreeveyTest)[] = Object.values(suite.children).filter(isDefined)
+  const cases: (CreeveySuite | CreeveyTest)[] = getChildrenArray(suite.children)
   let suiteOrTest
   while ((suiteOrTest = cases.pop())) {
     if (isTest(suiteOrTest)) {
@@ -39,36 +39,30 @@ export function countTestsStatus(suite: CreeveySuite): {
       if (suiteOrTest.status === 'failed') failedCount++
       if (suiteOrTest.status === 'pending') pendingCount++
     } else {
-      cases.push(...Object.values(suiteOrTest.children).filter(isDefined))
+      cases.push(...getChildrenArray(suiteOrTest.children))
     }
   }
   return { approvedCount, successCount, failedCount, pendingCount }
 }
 
 export function getFailedTests(suite: CreeveySuite): CreeveyTest[] {
-  return Object.values(suite.children)
-    .filter(isDefined)
-    .flatMap((suiteOrTest) => {
-      if (isTest(suiteOrTest)) return suiteOrTest.status === 'failed' ? suiteOrTest : []
-      return getFailedTests(suiteOrTest)
-    })
+  return getChildrenArray(suite.children).flatMap((suiteOrTest) => {
+    if (isTest(suiteOrTest)) return suiteOrTest.status === 'failed' ? suiteOrTest : []
+    return getFailedTests(suiteOrTest)
+  })
 }
 
 export function getCheckedTests(suite: CreeveySuite): CreeveyTest[] {
-  return Object.values(suite.children)
-    .filter(isDefined)
-    .flatMap((suiteOrTest) => {
-      if (isTest(suiteOrTest)) return suiteOrTest.checked ? suiteOrTest : []
-      if (!suiteOrTest.checked && !suiteOrTest.indeterminate) return []
-      return getCheckedTests(suiteOrTest)
-    })
+  return getChildrenArray(suite.children).flatMap((suiteOrTest) => {
+    if (isTest(suiteOrTest)) return suiteOrTest.checked ? suiteOrTest : []
+    if (!suiteOrTest.checked && !suiteOrTest.indeterminate) return []
+    return getCheckedTests(suiteOrTest)
+  })
 }
 
 export function hasScreenshots(item: CreeveySuite | CreeveyTest): boolean {
   if (isTest(item)) {
     return item.results?.some((r) => r.images !== undefined && Object.keys(r.images).length > 0) ?? false
   }
-  return Object.values(item.children)
-    .filter(isDefined)
-    .some((child) => hasScreenshots(child))
+  return getChildrenArray(item.children).some((child) => hasScreenshots(child))
 }

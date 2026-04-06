@@ -31,7 +31,7 @@ export function attachmentsToImages(attachments: Attachment[]): Partial<Record<s
       img?.actual !== undefined &&
       img?.expect !== null &&
       img?.expect !== undefined &&
-      img?.diff === null
+      img?.diff === undefined
     )
       delete img.expect
   }

@@ -44,7 +44,11 @@ export function handleTestEnd(ctx: HandlerContext, data: TestEndData): void {
       if (
         Object.values(prev).some(
           (img) =>
-            img !== null && img !== undefined && img.actual !== null && img.actual !== undefined && img.diff === null,
+            img !== null &&
+            img !== undefined &&
+            img.actual !== null &&
+            img.actual !== undefined &&
+            img.diff === undefined,
         )
       ) {
         images = prev

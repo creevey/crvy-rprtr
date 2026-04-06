@@ -36,7 +36,8 @@ export type TestStatus = z.infer<typeof TestStatusSchema>
 export const TestResultSchema = z.object({
   status: z.enum(['failed', 'success']),
   retries: z.number(),
-  images: z.record(z.string(), ImagesSchema).optional(),
+  // eslint-disable-next-line typescript/no-unsafe-type-assertion
+  images: z.record(z.string(), ImagesSchema).optional() as z.ZodType<Partial<Record<string, Images>>>,
   error: z.string().optional(),
   duration: z.number().optional(),
 })
@@ -67,18 +68,32 @@ export const CreeveyTestSchema = TestDataSchema.extend({
 
 export type CreeveyTest = z.infer<typeof CreeveyTestSchema>
 
-// Creevey suite schema (recursive)
-export const CreeveySuiteSchema: z.ZodType = z.object({
-  path: z.array(z.string()),
-  skip: z.boolean(),
-  status: TestStatusSchema.optional(),
-  opened: z.boolean(),
-  checked: z.boolean(),
-  indeterminate: z.boolean(),
-  children: z.record(z.string(), z.union([z.lazy(() => CreeveySuiteSchema), CreeveyTestSchema])).optional(),
-})
+// Creevey suite type (recursive)
+export interface CreeveySuite {
+  path: string[]
+  skip: boolean
+  status?: TestStatus
+  opened: boolean
+  checked: boolean
+  indeterminate: boolean
+  children?: Partial<Record<string, CreeveySuite | CreeveyTest>>
+}
 
-export type CreeveySuite = z.infer<typeof CreeveySuiteSchema>
+// Creevey suite schema (recursive) - explicitly typed to maintain type safety
+export const CreeveySuiteSchema: z.ZodType<CreeveySuite> = z.lazy(() =>
+  z.object({
+    path: z.array(z.string()),
+    skip: z.boolean(),
+    status: TestStatusSchema.optional(),
+    opened: z.boolean(),
+    checked: z.boolean(),
+    indeterminate: z.boolean(),
+    // eslint-disable-next-line typescript/no-unsafe-type-assertion
+    children: z.record(z.string(), z.union([CreeveySuiteSchema, CreeveyTestSchema])).optional() as z.ZodType<
+      Partial<Record<string, CreeveySuite | CreeveyTest>>
+    >,
+  }),
+)
 
 // WebSocket message types
 export const WebSocketMessageSchema = z.object({

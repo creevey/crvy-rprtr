@@ -1,4 +1,4 @@
-import { type CreeveySuite, type CreeveyTest, type TestData, isTest, isDefined } from '../../types'
+import { type CreeveySuite, type CreeveyTest, type TestData, isTest, isDefined, getChildrenEntries } from '../../types'
 import { isTestStatus, calcStatus } from './status'
 
 export function getTestPath(test: Pick<TestData, 'browser' | 'title' | 'titlePath'>): string[] {
@@ -8,7 +8,7 @@ export function getTestPath(test: Pick<TestData, 'browser' | 'title' | 'titlePat
 export function getSuiteByPath(suite: CreeveySuite, path: string[]): CreeveySuite | CreeveyTest | undefined {
   return path.reduce(
     (suiteOrTest: CreeveySuite | CreeveyTest | undefined, pathToken: string) =>
-      isTest(suiteOrTest) ? suiteOrTest : suiteOrTest?.children[pathToken],
+      isTest(suiteOrTest) ? suiteOrTest : suiteOrTest?.children?.[pathToken],
     suite as CreeveySuite | CreeveyTest | undefined,
   )
 }
@@ -83,6 +83,7 @@ export function treeifyTests(testsById: Record<string, TestData>): CreeveySuite 
     if (browserName === undefined) return
 
     const lastSuite = testPathParts.reverse().reduce((suite, token) => {
+      suite.children = suite.children ?? {}
       suite.children[token] ??= {
         path: [...suite.path, token],
         skip: false,
@@ -99,6 +100,7 @@ export function treeifyTests(testsById: Record<string, TestData>): CreeveySuite 
       return subSuite
     }, rootSuite)
 
+    lastSuite.children = lastSuite.children ?? {}
     lastSuite.children[browserName] = {
       ...test,
       checked: true,
@@ -112,9 +114,9 @@ export function mergeTreeState(target: CreeveySuite, source: CreeveySuite): void
   target.opened = source.opened
   target.checked = source.checked
   target.indeterminate = source.indeterminate
-  for (const [key, targetChild] of Object.entries(target.children)) {
-    const sourceChild = source.children[key]
-    if (!targetChild || !sourceChild) continue
+  for (const [key, targetChild] of getChildrenEntries(target.children)) {
+    const sourceChild = source.children?.[key]
+    if (targetChild === undefined || sourceChild === undefined) continue
     if (!isTest(targetChild) && !isTest(sourceChild)) {
       mergeTreeState(targetChild, sourceChild)
     } else if (isTest(targetChild) && isTest(sourceChild)) {

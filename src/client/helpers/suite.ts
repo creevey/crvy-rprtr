@@ -1,4 +1,13 @@
-import { type CreeveySuite, type CreeveyTest, type TestData, isTest, isDefined } from '../../types'
+import {
+  type CreeveySuite,
+  type CreeveyTest,
+  type TestData,
+  isTest,
+  isDefined,
+  getChildrenArray,
+  getChildrenEntries,
+  getChildrenKeys,
+} from '../../types'
 import { getSuiteByPath } from './path'
 import { calcStatus } from './status'
 
@@ -29,18 +38,14 @@ function checkTests(suiteOrTest: CreeveySuite | CreeveyTest, checked: boolean): 
   suiteOrTest.checked = checked
   if (!isTest(suiteOrTest)) {
     suiteOrTest.indeterminate = false
-    Object.values(suiteOrTest.children)
-      .filter(isDefined)
-      .forEach((child) => {
-        checkTests(child, checked)
-      })
+    getChildrenArray(suiteOrTest.children).forEach((child) => {
+      checkTests(child, checked)
+    })
   }
 }
 
 function updateChecked(suite: CreeveySuite): void {
-  const children = Object.values(suite.children)
-    .filter(isDefined)
-    .filter((child) => child.skip === false)
+  const children = getChildrenArray(suite.children).filter((child) => child.skip === false)
   const checkedEvery = children.every((test) => test.checked)
   const checkedSome = children.some((test) => test.checked)
   const indeterminate =
@@ -69,7 +74,7 @@ export function openSuite(suite: CreeveySuite, path: string[], opened: boolean):
     (suiteOrTest: CreeveySuite | CreeveyTest | undefined, pathToken: string) => {
       if (suiteOrTest && !isTest(suiteOrTest)) {
         if (opened) suiteOrTest.opened = opened
-        return suiteOrTest.children[pathToken]
+        return suiteOrTest.children?.[pathToken]
       }
     },
     suite as CreeveySuite | CreeveyTest | undefined,
@@ -81,16 +86,20 @@ export function filterTests(suite: CreeveySuite, filter: CreeveyViewFilter): Cre
   const { status, subStrings } = filter
   if (!status && !subStrings.length) return suite
   const filteredSuite: CreeveySuite = { ...suite, children: {} }
-  Object.entries(suite.children).forEach(([title, suiteOrTest]) => {
-    if (suiteOrTest === undefined || suiteOrTest.skip === true) return
+  getChildrenEntries(suite.children).forEach(([title, suiteOrTest]) => {
+    if (suiteOrTest.skip === true) return
     if (!status && subStrings.some((sub) => title.toLowerCase().includes(sub))) {
+      filteredSuite.children = filteredSuite.children ?? {}
       filteredSuite.children[title] = suiteOrTest
     } else if (isTest(suiteOrTest)) {
-      if (status && suiteOrTest.status && ['pending', 'running', status].includes(suiteOrTest.status))
+      if (status && suiteOrTest.status && ['pending', 'running', status].includes(suiteOrTest.status)) {
+        filteredSuite.children = filteredSuite.children ?? {}
         filteredSuite.children[title] = suiteOrTest
+      }
     } else {
       const filteredSubSuite = filterTests(suiteOrTest, filter)
-      if (Object.keys(filteredSubSuite.children).length === 0) return
+      if (getChildrenKeys(filteredSubSuite.children).length === 0) return
+      filteredSuite.children = filteredSuite.children ?? {}
       filteredSuite.children[title] = filteredSubSuite
     }
   })
@@ -99,14 +108,16 @@ export function filterTests(suite: CreeveySuite, filter: CreeveyViewFilter): Cre
 
 export function flattenSuite(suite: CreeveySuite): { title: string; suite: CreeveySuite | CreeveyTest }[] {
   if (!suite.opened) return []
-  return Object.entries(suite.children).flatMap(([title, subSuite]) =>
-    subSuite ? [{ title, suite: subSuite }, ...(isTest(subSuite) ? [] : flattenSuite(subSuite))] : [],
-  )
+  return getChildrenEntries(suite.children).flatMap(([title, subSuite]) => [
+    { title, suite: subSuite },
+    ...(isTest(subSuite) ? [] : flattenSuite(subSuite)),
+  ])
 }
 
 export function updateTestStatus(suite: CreeveySuite, path: string[], update: Partial<TestData>): void {
   const title = path.shift()
   if (title === undefined) return
+  suite.children = suite.children ?? {}
   const suiteOrTest =
     suite.children[title] ??
     (suite.children[title] =
@@ -137,12 +148,10 @@ export function updateTestStatus(suite: CreeveySuite, path: string[], update: Pa
   } else {
     updateTestStatus(suiteOrTest, path, update)
   }
-  suite.skip = Object.values(suite.children)
-    .filter(isDefined)
+  suite.skip = getChildrenArray(suite.children)
     .map(({ skip }) => skip)
     .every(Boolean)
-  suite.status = Object.values(suite.children)
-    .filter(isDefined)
+  suite.status = getChildrenArray(suite.children)
     .map(({ status }) => status)
     .reduce(calcStatus)
 }
@@ -152,26 +161,23 @@ export function recalcSuiteStatuses(root: CreeveySuite, testPath: string[]): voi
   for (const parentPath of ancestorPaths) {
     const parentSuite = getSuiteByPath(root, parentPath)
     if (parentSuite && !isTest(parentSuite)) {
-      parentSuite.status = Object.values(parentSuite.children)
-        .filter(isDefined)
+      parentSuite.status = getChildrenArray(parentSuite.children)
         .map(({ status }) => status)
         .reduce(calcStatus)
     }
   }
-  root.status = Object.values(root.children)
-    .filter(isDefined)
+  root.status = getChildrenArray(root.children)
     .map(({ status }) => status)
     .reduce(calcStatus)
 }
 
 export function recalcAllSuiteStatuses(suite: CreeveySuite): void {
-  for (const child of Object.values(suite.children).filter(isDefined)) {
+  for (const child of getChildrenArray(suite.children)) {
     if (!isTest(child)) {
       recalcAllSuiteStatuses(child)
     }
   }
-  suite.status = Object.values(suite.children)
-    .filter(isDefined)
+  suite.status = getChildrenArray(suite.children)
     .map(({ status }) => status)
     .reduce(calcStatus)
 }
@@ -179,19 +185,18 @@ export function recalcAllSuiteStatuses(suite: CreeveySuite): void {
 export function removeTests(suite: CreeveySuite, path: string[]): void {
   const title = path.shift()
   if (title === undefined) return
-  const suiteOrTest = suite.children[title]
+  const suiteOrTest = suite.children?.[title]
   if (suiteOrTest && !isTest(suiteOrTest)) removeTests(suiteOrTest, path)
-  if (isTest(suiteOrTest) || Object.keys(suiteOrTest?.children ?? {}).length === 0) {
-    suite.children[title] = undefined
+  if (isTest(suiteOrTest) || getChildrenKeys(suiteOrTest?.children).length === 0) {
+    const { [title]: _, ...remaining } = suite.children ?? {}
+    suite.children = remaining
   }
-  if (Object.keys(suite.children).length === 0) return
+  if (getChildrenKeys(suite.children).length === 0) return
   updateChecked(suite)
-  suite.skip = Object.values(suite.children)
-    .filter(isDefined)
+  suite.skip = getChildrenArray(suite.children)
     .map(({ skip }) => skip)
     .every(Boolean)
-  suite.status = Object.values(suite.children)
-    .filter(isDefined)
+  suite.status = getChildrenArray(suite.children)
     .map(({ status }) => status)
     .reduce(calcStatus)
 }

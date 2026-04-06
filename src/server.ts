@@ -1,6 +1,9 @@
 import { join } from "path";
+import pLimit from "p-limit";
 import type { TestData, WebSocketMessage } from "./types.ts";
 import type { ServerWebSocket } from "bun";
+
+const MAX_CONCURRENT_FILE_OPS = 5;
 
 export interface ServerOptions {
   port?: number;
@@ -65,33 +68,43 @@ interface OfflineReport {
 
 async function mergeOfflineReport(offlineReport: OfflineReport): Promise<void> {
   console.log(`[Server] Merging offline report from ${offlineReport.workers} worker(s)`);
+  const limit = pLimit(MAX_CONCURRENT_FILE_OPS);
 
-  for (const event of offlineReport.events) {
-    await handleWebSocketMessage({
-      type: event.type,
-      data: event.data,
-    } as WebSocketMessage);
-  }
+  const eventPromises = offlineReport.events.map((event) =>
+    limit(() =>
+      handleWebSocketMessage({
+        type: event.type,
+        data: event.data,
+      } as WebSocketMessage),
+    ),
+  );
+
+  await Promise.all(eventPromises);
 }
 
 async function loadOfflineReports(): Promise<void> {
   const workerIdx = parseInt(process.env.TEST_WORKER_INDEX ?? "0", 10);
   const patterns = [`creevey-offline-report-${workerIdx}.json`, "creevey-offline-report.json"];
+  const limit = pLimit(MAX_CONCURRENT_FILE_OPS);
 
-  for (const file of patterns) {
-    const f = Bun.file(file);
-    if (f.size > 0) {
-      try {
-        const data = (await f.json()) as OfflineReport;
-        if (data.version === 1 && Array.isArray(data.events)) {
-          console.log(`[Server] Loading offline report: ${file}`);
-          mergeOfflineReport(data);
+  const loadPromises = patterns.map((file) =>
+    limit(async () => {
+      const f = Bun.file(file);
+      if (f.size > 0) {
+        try {
+          const data = (await f.json()) as OfflineReport;
+          if (data.version === 1 && Array.isArray(data.events)) {
+            console.log(`[Server] Loading offline report: ${file}`);
+            void mergeOfflineReport(data);
+          }
+        } catch {
+          // Skip invalid files
         }
-      } catch {
-        // Skip invalid files
       }
-    }
-  }
+    }),
+  );
+
+  await Promise.all(loadPromises);
 }
 
 async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
@@ -153,7 +166,7 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
           },
         ];
         const icon = data.status === "passed" ? "✓" : data.status === "skipped" ? "–" : "✗";
-        const dur = data.duration != null ? ` (${data.duration}ms)` : "";
+        const dur = data.duration !== null ? ` (${data.duration}ms)` : "";
         const diffCount = Object.values(images).filter((img) => img?.diff).length;
         const diffNote = diffCount > 0 ? ` [${diffCount} diff(s)]` : "";
         const errNote = data.error ? `\n    Error: ${data.error}` : "";

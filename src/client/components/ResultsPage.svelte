@@ -32,7 +32,7 @@
           (name) =>
             result!.status !== 'success' &&
             test.approved?.[name] !== retry - 1 &&
-            result!.images?.[name]?.diff != null,
+            result!.images?.[name]?.diff !== null,
         )
       : []
   );

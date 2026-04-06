@@ -9,6 +9,9 @@ import type {
 } from "@playwright/test/reporter";
 import { mkdir, copyFile, writeFile } from "fs/promises";
 import { join } from "path";
+import pLimit from "p-limit";
+
+const MAX_CONCURRENT_FILE_OPS = 5;
 
 function extractScreenshotNames(steps: TestStep[]): string[] {
   const names: string[] = [];
@@ -120,27 +123,33 @@ export class CreeveyReporter implements Reporter {
         const projectName = test.parent.project()?.name ?? "chromium";
         const snapshotDir = `${test.location.file}-snapshots`;
         const testScreenshotDir = join(this.screenshotDir, this.sanitizeId(test.id));
-        for (const name of snapshotNames) {
-          const baseName = name.replace(/\.png$/, "");
-          const snapshotPath = join(
-            snapshotDir,
-            `${baseName}-${projectName}-${process.platform}.png`,
-          );
-          const destName = `${baseName}-expected`;
-          const destPath = join(testScreenshotDir, destName);
-          try {
-            await mkdir(testScreenshotDir, { recursive: true });
-            await copyFile(snapshotPath, destPath);
-            savedAttachments.push({
-              name: destName,
-              path: `${this.sanitizeId(test.id)}/${destName}`,
-              contentType: "image/png",
-            });
-            console.log(`[CreeveyReporter] Attached baseline: ${snapshotPath}`);
-          } catch {
-            // baseline not found yet (first run), skip
-          }
-        }
+        const limit = pLimit(MAX_CONCURRENT_FILE_OPS);
+
+        const copyPromises = snapshotNames.map((name) =>
+          limit(async () => {
+            const baseName = name.replace(/\.png$/, "");
+            const snapshotPath = join(
+              snapshotDir,
+              `${baseName}-${projectName}-${process.platform}.png`,
+            );
+            const destName = `${baseName}-expected`;
+            const destPath = join(testScreenshotDir, destName);
+            try {
+              await mkdir(testScreenshotDir, { recursive: true });
+              await copyFile(snapshotPath, destPath);
+              savedAttachments.push({
+                name: destName,
+                path: `${this.sanitizeId(test.id)}/${destName}`,
+                contentType: "image/png",
+              });
+              console.log(`[CreeveyReporter] Attached baseline: ${snapshotPath}`);
+            } catch {
+              // baseline not found yet (first run), skip
+            }
+          }),
+        );
+
+        await Promise.all(copyPromises);
       }
     }
 
@@ -160,30 +169,39 @@ export class CreeveyReporter implements Reporter {
   private async saveAttachments(testId: string, result: TestResult): Promise<AttachmentData[]> {
     const savedAttachments: AttachmentData[] = [];
     const testScreenshotDir = join(this.screenshotDir, this.sanitizeId(testId));
+    const limit = pLimit(MAX_CONCURRENT_FILE_OPS);
 
-    for (const attachment of result.attachments) {
-      if (attachment.contentType === "image/png" && attachment.path) {
-        try {
-          await mkdir(testScreenshotDir, { recursive: true });
-          const fileName = attachment.name;
-          const destPath = join(testScreenshotDir, fileName);
-          await copyFile(attachment.path, destPath);
-          savedAttachments.push({
-            name: attachment.name,
-            path: `${this.sanitizeId(testId)}/${fileName}`,
-            contentType: attachment.contentType,
-          });
-          console.log(`[CreeveyReporter] Saved screenshot: ${destPath}`);
-        } catch (e) {
-          console.error(`[CreeveyReporter] Failed to save screenshot: ${attachment.path}`, e);
-          savedAttachments.push({
-            name: attachment.name,
-            path: attachment.path,
-            contentType: attachment.contentType,
-          });
-        }
-      }
-    }
+    const attachmentPromises = result.attachments
+      .filter((attachment): attachment is typeof attachment & { path: string } =>
+        attachment.contentType === "image/png" && attachment.path !== undefined
+      )
+      .map((attachment) =>
+        limit(async () => {
+          try {
+            await mkdir(testScreenshotDir, { recursive: true });
+            const fileName = attachment.name;
+            const destPath = join(testScreenshotDir, fileName);
+            await copyFile(attachment.path, destPath);
+            const attachmentData: AttachmentData = {
+              name: attachment.name,
+              path: `${this.sanitizeId(testId)}/${fileName}`,
+              contentType: attachment.contentType,
+            };
+            savedAttachments.push(attachmentData);
+            console.log(`[CreeveyReporter] Saved screenshot: ${destPath}`);
+          } catch (e) {
+            console.error(`[CreeveyReporter] Failed to save screenshot: ${attachment.path}`, e);
+            const fallbackData: AttachmentData = {
+              name: attachment.name,
+              path: attachment.path,
+              contentType: attachment.contentType,
+            };
+            savedAttachments.push(fallbackData);
+          }
+        }),
+      );
+
+    await Promise.all(attachmentPromises);
 
     return savedAttachments;
   }

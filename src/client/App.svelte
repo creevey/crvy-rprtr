@@ -205,7 +205,7 @@
     const failedImages = Object.entries(testResult?.images ?? {})
       .filter(([name]) =>
         Boolean(
-          testResult?.images?.[name]?.error != null &&
+          testResult?.images?.[name]?.error !== null &&
           openedTest?.approved?.[name] !== retry - 1 &&
           testResult?.status !== 'success',
         ),

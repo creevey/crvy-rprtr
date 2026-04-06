@@ -18,15 +18,19 @@ When the Creevey server starts, it automatically scans for and loads any offline
 ```typescript
 // playwright.config.ts
 reporter: [
-  ["./src/reporter.ts", {
-    serverUrl: process.env.CREEVEY_SERVER_URL ?? "ws://localhost:3000",
-  }],
+  [
+    './src/reporter.ts',
+    {
+      serverUrl: process.env.CREEVEY_SERVER_URL ?? 'ws://localhost:3000',
+    },
+  ],
 ]
 ```
 
 ## Artifacts
 
 Upload these files as CI artifacts:
+
 - `screenshots/` - all screenshots
 - `creevey-offline-report-*.json` - event data for each worker
 
@@ -38,7 +42,7 @@ Upload these files as CI artifacts:
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `TEST_WORKER_INDEX` | Worker index for file naming | `0` |
-| `CREEVEY_SERVER_URL` | WebSocket server URL | `ws://localhost:3000` |
+| Variable             | Description                  | Default               |
+| -------------------- | ---------------------------- | --------------------- |
+| `TEST_WORKER_INDEX`  | Worker index for file naming | `0`                   |
+| `CREEVEY_SERVER_URL` | WebSocket server URL         | `ws://localhost:3000` |

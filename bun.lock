@@ -6,6 +6,7 @@
       "name": "creevey-reporter",
       "dependencies": {
         "p-limit": "^7.3.0",
+        "zod": "^4.3.6",
       },
       "devDependencies": {
         "@playwright/test": "^1.58.2",
@@ -25,7 +26,6 @@
       },
       "peerDependencies": {
         "@playwright/test": ">=1.40",
-        "typescript": "^5",
       },
     },
   },

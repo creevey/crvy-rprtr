@@ -37,15 +37,15 @@ Creevey is a screenshot testing reporter that allows teams to compare, review, a
 { type: "test-begin", data: { id: string, title: string, location: { file: string, line: number } } }
 
 // Test completes
-{ 
-  type: "test-end", 
-  data: { 
-    id: string, 
+{
+  type: "test-end",
+  data: {
+    id: string,
     status: "passed" | "failed" | "skipped",
     attachments: Array<{ name: string, path: string, contentType: string }>,
     error?: string,
     duration?: number
-  } 
+  }
 }
 
 // All tests done
@@ -68,17 +68,17 @@ Creevey is a screenshot testing reporter that allows teams to compare, review, a
 
 ```typescript
 interface CreeveyTest extends TestData {
-  checked: boolean;
+  checked: boolean
   // New fields for Playwright
-  attachments?: Attachment[];
-  title?: string;       // Playwright test title
-  location?: Location;  // File location of test
+  attachments?: Attachment[]
+  title?: string // Playwright test title
+  location?: Location // File location of test
 }
 
 interface Attachment {
-  name: string;
-  path: string;        // Absolute path to saved screenshot
-  contentType: string;
+  name: string
+  path: string // Absolute path to saved screenshot
+  contentType: string
 }
 ```
 
@@ -86,12 +86,12 @@ interface Attachment {
 
 ```typescript
 interface ReportData {
-  isRunning: boolean;
-  tests: Record<string, TestData>;
-  browsers: string[];
-  isUpdateMode: boolean;
+  isRunning: boolean
+  tests: Record<string, TestData>
+  browsers: string[]
+  isUpdateMode: boolean
   // Playwright-specific
-  screenshotDir: string;  // Directory where screenshots are saved
+  screenshotDir: string // Directory where screenshots are saved
 }
 ```
 
@@ -113,58 +113,62 @@ project-under-test/
 
 ```typescript
 // playwright-reporter.ts
-import type { Reporter, FullConfig, Suite, TestCase, TestResult } from '@playwright/test/reporter';
+import type { Reporter, FullConfig, Suite, TestCase, TestResult } from '@playwright/test/reporter'
 
 interface CreeveyReporterOptions {
-  serverUrl: string;
-  screenshotDir?: string;
+  serverUrl: string
+  screenshotDir?: string
 }
 
 class CreeveyReporter implements Reporter {
-  private ws: WebSocket;
-  private screenshotDir: string;
+  private ws: WebSocket
+  private screenshotDir: string
 
   constructor(options: CreeveyReporterOptions) {
-    this.screenshotDir = options.screenshotDir ?? './screenshots';
-    this.ws = new WebSocket(options.serverUrl);
+    this.screenshotDir = options.screenshotDir ?? './screenshots'
+    this.ws = new WebSocket(options.serverUrl)
   }
 
   onBegin(config: FullConfig, suite: Suite) {
-    console.log(`Starting run with ${suite.allTests().length} tests`);
+    console.log(`Starting run with ${suite.allTests().length} tests`)
   }
 
   async onTestEnd(test: TestCase, result: TestResult) {
     // Extract screenshot attachments
     const attachments = result.attachments
-      .filter(a => a.contentType === 'image/png')
-      .map(a => ({
+      .filter((a) => a.contentType === 'image/png')
+      .map((a) => ({
         name: a.name,
-        path: a.path ?? '',  // Path set by Playwright when using toHaveScreenshot
-        contentType: a.contentType
-      }));
+        path: a.path ?? '', // Path set by Playwright when using toHaveScreenshot
+        contentType: a.contentType,
+      }))
 
     // Save screenshots to disk and get paths
-    const savedAttachments = await this.saveScreenshots(test.id, attachments);
+    const savedAttachments = await this.saveScreenshots(test.id, attachments)
 
     // Send to Creevey server
-    this.ws.send(JSON.stringify({
-      type: 'test-end',
-      data: {
-        id: test.id,
-        status: result.status,
-        attachments: savedAttachments,
-        error: result.errors[0]?.message,
-        duration: result.duration
-      }
-    }));
+    this.ws.send(
+      JSON.stringify({
+        type: 'test-end',
+        data: {
+          id: test.id,
+          status: result.status,
+          attachments: savedAttachments,
+          error: result.errors[0]?.message,
+          duration: result.duration,
+        },
+      }),
+    )
   }
 
   onEnd(result: { status: string }) {
-    this.ws.send(JSON.stringify({
-      type: 'run-end',
-      data: { status: result.status }
-    }));
-    this.ws.close();
+    this.ws.send(
+      JSON.stringify({
+        type: 'run-end',
+        data: { status: result.status },
+      }),
+    )
+    this.ws.close()
   }
 }
 ```
@@ -213,7 +217,9 @@ message(ws, message) {
 ## Alternatives Considered
 
 ### File-based Approach
+
 Simpler but lacks real-time updates. Requires polling or file watching. Rejected in favor of WebSocket for live experience.
 
 ### Binary Protocol
+
 More efficient for large screenshots but harder to debug. JSON was chosen for simplicity and debuggability.

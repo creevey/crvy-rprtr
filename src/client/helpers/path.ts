@@ -1,0 +1,124 @@
+import { type CreeveySuite, type CreeveyTest, type TestData, isTest, isDefined } from '../../types'
+import { isTestStatus, calcStatus } from './status'
+
+export function getTestPath(test: Pick<TestData, 'browser' | 'title' | 'titlePath'>): string[] {
+  return [...test.titlePath, test.title, test.browser].filter(isDefined)
+}
+
+export function getSuiteByPath(suite: CreeveySuite, path: string[]): CreeveySuite | CreeveyTest | undefined {
+  return path.reduce(
+    (suiteOrTest: CreeveySuite | CreeveyTest | undefined, pathToken: string) =>
+      isTest(suiteOrTest) ? suiteOrTest : suiteOrTest?.children[pathToken],
+    suite as CreeveySuite | CreeveyTest | undefined,
+  )
+}
+
+export function getTestByPath(suite: CreeveySuite, path: string[]): CreeveyTest | null {
+  const test = getSuiteByPath(suite, path) ?? suite
+  return isTest(test) ? test : null
+}
+
+export function setSearchParams(testPath: string[]): void {
+  const params = new URLSearchParams()
+  testPath.forEach((p, i) => {
+    params.set(`testPath[${i}]`, p)
+  })
+  window.history.pushState({ testPath }, '', `?${params.toString()}`)
+}
+
+export function getTestPathFromSearch(): string[] {
+  const params = new URLSearchParams(window.location.search)
+  const path: string[] = []
+  let i = 0
+  while (params.has(`testPath[${i}]`)) {
+    path.push(params.get(`testPath[${i}]`)!)
+    i++
+  }
+  return path
+}
+
+export function parseFilterString(value: string): {
+  status: import('../../types').TestStatus | null
+  subStrings: string[]
+} {
+  let status: import('../../types').TestStatus | null = null
+  const subStrings: string[] = []
+  value
+    .split(' ')
+    .filter((s) => s !== '')
+    .map((word) => word.toLowerCase())
+    .forEach((word) => {
+      const match = /^status:(failed|success|pending|approved)$/i.exec(word)
+      if (match !== null) {
+        const matchedStatus = match[1]
+        if (matchedStatus !== undefined && isTestStatus(matchedStatus)) {
+          status = matchedStatus satisfies import('../../types').TestStatus
+          return
+        }
+      }
+      subStrings.push(word)
+    })
+  return { status, subStrings }
+}
+
+export function treeifyTests(testsById: Record<string, TestData>): CreeveySuite {
+  const rootSuite: CreeveySuite = {
+    path: [],
+    skip: false,
+    opened: true,
+    checked: true,
+    indeterminate: false,
+    children: {},
+  }
+
+  Object.values(testsById).forEach((test) => {
+    if (test === undefined) return
+
+    const titlePath = test.titlePath ?? []
+    const browser = test.browser ?? ''
+    const title = test.title
+
+    const pathParts: string[] = [...titlePath, title, browser].filter((p): p is string => p !== undefined && p !== '')
+    const [browserName, ...testPathParts] = pathParts.reverse()
+    if (browserName === undefined) return
+
+    const lastSuite = testPathParts.reverse().reduce((suite, token) => {
+      suite.children[token] ??= {
+        path: [...suite.path, token],
+        skip: false,
+        opened: false,
+        checked: true,
+        indeterminate: false,
+        children: {},
+      }
+      const subSuite = suite.children[token]
+      if (subSuite === undefined || isTest(subSuite)) return suite
+      subSuite.status = calcStatus(subSuite.status, test.status)
+      suite.status = calcStatus(suite.status, subSuite.status)
+      if (test.skip === false) subSuite.skip = false
+      return subSuite
+    }, rootSuite)
+
+    lastSuite.children[browserName] = {
+      ...test,
+      checked: true,
+    } as CreeveyTest
+  })
+
+  return rootSuite
+}
+
+export function mergeTreeState(target: CreeveySuite, source: CreeveySuite): void {
+  target.opened = source.opened
+  target.checked = source.checked
+  target.indeterminate = source.indeterminate
+  for (const [key, targetChild] of Object.entries(target.children)) {
+    const sourceChild = source.children[key]
+    if (!targetChild || !sourceChild) continue
+    if (!isTest(targetChild) && !isTest(sourceChild)) {
+      mergeTreeState(targetChild, sourceChild)
+    } else if (isTest(targetChild) && isTest(sourceChild)) {
+      targetChild.checked = sourceChild.checked
+    }
+  }
+}

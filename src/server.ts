@@ -1,74 +1,79 @@
-import { join } from "path";
-import pLimit from "p-limit";
-import type { TestData, WebSocketMessage } from "./types.ts";
-import type { ServerWebSocket } from "bun";
+import type { ServerWebSocket } from 'bun'
+import pLimit from 'p-limit'
 
-const MAX_CONCURRENT_FILE_OPS = 5;
+import {
+  LoadedReportDataSchema,
+  OfflineReportSchema,
+  TestBeginDataSchema,
+  TestEndDataSchema,
+  WebSocketMessageSchema,
+  safeParse,
+} from './schemas.ts'
+import {
+  handleTestBegin,
+  handleTestEnd,
+  handleRunEnd,
+  handleApprove,
+  handleSync,
+  createRoutes,
+  type HandlerContext,
+} from './server/index.ts'
+import type { TestData, WebSocketMessage } from './types.ts'
+
+const MAX_CONCURRENT_FILE_OPS = 5
 
 export interface ServerOptions {
-  port?: number;
-  screenshotDir?: string;
-  reportPath?: string;
+  port?: number
+  screenshotDir?: string
+  reportPath?: string
   /** Absolute path to the directory containing index.html and dist/ */
-  staticDir?: string;
+  staticDir?: string
 }
 
-const wsClients = new Set<ServerWebSocket>();
-const currentRunIds = new Set<string>();
+const wsClients = new Set<ServerWebSocket>()
+const currentRunIds = new Set<string>()
 
 interface ReportData {
-  isRunning: boolean;
-  tests: Record<string, TestData>;
-  browsers: string[];
-  isUpdateMode: boolean;
-  screenshotDir: string;
+  isRunning: boolean
+  tests: Record<string, TestData>
+  browsers: string[]
+  isUpdateMode: boolean
+  screenshotDir: string
 }
 
 const reportData: ReportData = {
   isRunning: false,
   tests: {},
-  browsers: ["chromium"],
+  browsers: ['chromium'],
   isUpdateMode: false,
-  screenshotDir: "./screenshots",
-};
+  screenshotDir: './screenshots',
+}
 
-let reportPath = "./report.json";
+let reportPath = './report.json'
 
 async function loadReport(): Promise<void> {
   try {
-    const file = Bun.file(reportPath);
+    const file = Bun.file(reportPath)
     if (file.size > 0) {
-      const data = (await file.json()) as {
-        tests?: Record<string, TestData>;
-        isUpdateMode?: boolean;
-      };
-      reportData.tests = data.tests ?? {};
-      reportData.isUpdateMode = data.isUpdateMode ?? false;
+      const raw: unknown = await file.json()
+      const parsed = safeParse(LoadedReportDataSchema, raw)
+      if (parsed) {
+        reportData.tests = parsed.tests ?? {}
+        reportData.isUpdateMode = parsed.isUpdateMode ?? false
+      }
     }
   } catch {
-    console.log("No report.json found, using empty state");
+    console.log('No report.json found, using empty state')
   }
 }
 
 async function saveReport(): Promise<void> {
-  await Bun.write(reportPath, JSON.stringify(reportData, null, 2));
+  await Bun.write(reportPath, JSON.stringify(reportData, null, 2))
 }
 
-interface OfflineReport {
-  version: number;
-  generatedAt: string;
-  workers: number;
-  events: Array<{
-    type: "test-begin" | "test-end" | "run-end";
-    data: unknown;
-    timestamp: number;
-    workerIndex: number;
-  }>;
-}
-
-async function mergeOfflineReport(offlineReport: OfflineReport): Promise<void> {
-  console.log(`[Server] Merging offline report from ${offlineReport.workers} worker(s)`);
-  const limit = pLimit(MAX_CONCURRENT_FILE_OPS);
+async function mergeOfflineReport(offlineReport: import('./schemas.ts').OfflineReport): Promise<void> {
+  console.log(`[Server] Merging offline report from ${offlineReport.workers} worker(s)`)
+  const limit = pLimit(MAX_CONCURRENT_FILE_OPS)
 
   const eventPromises = offlineReport.events.map((event) =>
     limit(() =>
@@ -77,341 +82,149 @@ async function mergeOfflineReport(offlineReport: OfflineReport): Promise<void> {
         data: event.data,
       } as WebSocketMessage),
     ),
-  );
+  )
 
-  await Promise.all(eventPromises);
+  await Promise.all(eventPromises)
 }
 
 async function loadOfflineReports(): Promise<void> {
-  const workerIdx = parseInt(process.env.TEST_WORKER_INDEX ?? "0", 10);
-  const patterns = [`creevey-offline-report-${workerIdx}.json`, "creevey-offline-report.json"];
-  const limit = pLimit(MAX_CONCURRENT_FILE_OPS);
+  const workerIdx = parseInt(process.env.TEST_WORKER_INDEX ?? '0', 10)
+  const patterns = [`creevey-offline-report-${workerIdx}.json`, 'creevey-offline-report.json']
+  const limit = pLimit(MAX_CONCURRENT_FILE_OPS)
 
   const loadPromises = patterns.map((file) =>
     limit(async () => {
-      const f = Bun.file(file);
+      const f = Bun.file(file)
       if (f.size > 0) {
         try {
-          const data = (await f.json()) as OfflineReport;
-          if (data.version === 1 && Array.isArray(data.events)) {
-            console.log(`[Server] Loading offline report: ${file}`);
-            void mergeOfflineReport(data);
+          const raw: unknown = await f.json()
+          const parsed = safeParse(OfflineReportSchema, raw)
+          if (parsed && parsed.version === 1 && Array.isArray(parsed.events)) {
+            console.log(`[Server] Loading offline report: ${file}`)
+            void mergeOfflineReport(parsed)
           }
         } catch {
           // Skip invalid files
         }
       }
     }),
-  );
+  )
 
-  await Promise.all(loadPromises);
+  await Promise.all(loadPromises)
+}
+
+function getHandlerContext(): HandlerContext {
+  return {
+    reportData,
+    wsClients,
+    currentRunIds,
+    saveReport,
+  }
 }
 
 async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
+  const ctx = getHandlerContext()
   switch (msg.type) {
-    case "test-begin": {
-      const { id, title, titlePath, browser, location } = msg.data as {
-        id: string;
-        title: string;
-        titlePath: string[];
-        browser: string;
-        location: { file: string; line: number };
-      };
-      currentRunIds.add(id);
-      if (!reportData.tests[id]) {
-        reportData.tests[id] = {
-          id,
-          titlePath: titlePath ?? [],
-          browser: browser ?? "",
-          title: title ?? "",
-          location,
-          status: "running",
-        };
+    case 'test-begin': {
+      const data = msg.data
+      const parsed = safeParse(TestBeginDataSchema, data)
+      if (!parsed) {
+        console.error('Invalid test-begin message data', data)
+        break
       }
-      console.log(`  ▶ [${browser ?? "?"}] ${title}`);
-      break;
+      handleTestBegin(ctx, parsed)
+      break
     }
-    case "test-end": {
-      const data = msg.data as {
-        id: string;
-        status: "passed" | "failed" | "skipped";
-        attachments: Array<{ name: string; path: string; contentType: string }>;
-        error?: string;
-        duration?: number;
-      };
-      const test = reportData.tests[data.id];
-      if (test) {
-        test.status = mapStatus(data.status);
-        let images = attachmentsToImages(data.attachments);
-        // For passing tests with no new attachments, preserve images from the
-        // previous passing result (actual-only, no diff) so screenshot tests
-        // remain visible across runs without re-uploading the baseline.
-        if (data.status === "passed" && Object.keys(images).length === 0) {
-          const prev = test.results?.[0]?.images ?? {};
-          if (Object.values(prev).some((img) => img?.actual && !img?.diff)) {
-            images = prev;
-          }
-        }
-        // New failure with diff images invalidates any prior approval.
-        const hasDiffs = Object.values(images).some((img) => img?.diff);
-        if (hasDiffs) test.approved = null;
-
-        test.results = [
-          {
-            status: data.status === "passed" ? "success" : "failed",
-            retries: 0,
-            images,
-            error: data.error,
-            duration: data.duration,
-          },
-        ];
-        const icon = data.status === "passed" ? "✓" : data.status === "skipped" ? "–" : "✗";
-        const dur = data.duration !== null ? ` (${data.duration}ms)` : "";
-        const diffCount = Object.values(images).filter((img) => img?.diff).length;
-        const diffNote = diffCount > 0 ? ` [${diffCount} diff(s)]` : "";
-        const errNote = data.error ? `\n    Error: ${data.error}` : "";
-        console.log(`  ${icon} [${test.browser}] ${test.title}${dur}${diffNote}${errNote}`);
+    case 'test-end': {
+      const data = msg.data
+      const parsed = safeParse(TestEndDataSchema, data)
+      if (!parsed) {
+        console.error('Invalid test-end message data', data)
+        break
       }
-      broadcastToBrowsers({ type: "test-update", data });
-      break;
+      handleTestEnd(ctx, parsed)
+      break
     }
-    case "run-end": {
-      reportData.isRunning = false;
-      // Remove tests that were not part of this run (stale entries from previous runs)
-      for (const id of Object.keys(reportData.tests)) {
-        if (!currentRunIds.has(id)) delete reportData.tests[id];
-      }
-      currentRunIds.clear();
-      await saveReport();
-      const runTests = Object.values(reportData.tests).filter(Boolean);
-      const passed = runTests.filter((t) => t!.status === "success").length;
-      const failed = runTests.filter((t) => t!.status === "failed").length;
-      const pending = runTests.filter((t) => t!.status === "pending").length;
-      console.log(`\nRun complete — ${passed} passed, ${failed} failed, ${pending} skipped`);
-      broadcastToBrowsers({ type: "run-end", data: msg.data });
-      break;
+    case 'run-end': {
+      await handleRunEnd(ctx, msg.data)
+      break
+    }
+    case 'approve': {
+      handleApprove()
+      break
+    }
+    case 'sync': {
+      handleSync(ctx)
+      break
     }
   }
 }
 
-function attachmentsToImages(
-  attachments: Array<{ name: string; path: string; contentType: string }>,
-): Partial<Record<string, import("./types.ts").Images>> {
-  const images: Partial<Record<string, import("./types.ts").Images>> = {};
-  for (const attachment of attachments) {
-    if (attachment.contentType !== "image/png") continue;
-    const match = attachment.name.match(/^(.+?)-(actual|expected|diff)(?:\.png)?$/);
-    if (!match) continue;
-    const baseName = match[1] as string;
-    const role = match[2] as string;
-    if (!images[baseName]) images[baseName] = { actual: "" };
-    const url = `/screenshots/${attachment.path}`;
-    if (role === "actual") images[baseName]!.actual = url;
-    else if (role === "expected") images[baseName]!.expect = url;
-    else if (role === "diff") images[baseName]!.diff = url;
-  }
-  // For passing comparisons (has both actual and expected but no diff), drop the
-  // expect — it matched so there is nothing to review, keep only actual.
-  // A lone expected (baseline-only, no actual) is kept for display as-is.
-  for (const key of Object.keys(images)) {
-    const img = images[key];
-    if (img?.actual && img?.expect && !img?.diff) delete img.expect;
-  }
-  return images;
-}
-
-function broadcastToBrowsers(msg: object): void {
-  const payload = JSON.stringify(msg);
-  wsClients.forEach((ws) => {
-    ws.send(payload);
-  });
-}
-
-function mapStatus(status: "passed" | "failed" | "skipped"): TestData["status"] {
-  switch (status) {
-    case "passed":
-      return "success";
-    case "failed":
-      return "failed";
-    case "skipped":
-      return "pending";
-    default:
-      return "unknown";
-  }
-}
-
-export async function startServer(options: ServerOptions = {}): Promise<void> {
-  const port = options.port ?? 3000;
-  reportData.screenshotDir = options.screenshotDir ?? "./screenshots";
-  reportPath = options.reportPath ?? "./report.json";
-
-  // Resolve static assets (index.html, dist/) relative to the package directory,
-  // while user files (report.json, screenshots/) resolve relative to cwd.
-  const packageDir = options.staticDir ?? import.meta.dir;
-
-  await loadReport();
-  await loadOfflineReports();
+function runServer(port: number, packageDir: string): void {
+  const routes = createRoutes({
+    reportData,
+    packageDir,
+    saveReport,
+  })
 
   Bun.serve({
     port,
-    routes: {
-      "/": (req, server) => {
-        if (server.upgrade(req)) return;
-        const html = Bun.file(join(packageDir, "..", "index.html"));
-        return new Response(html, { headers: { "Content-Type": "text/html" } });
-      },
-      "/src/client/app.css": async () => {
-        const css = Bun.file("./src/client/app.css");
-        return new Response(css, { headers: { "Content-Type": "text/css" } });
-      },
-      "/src/*": async (req) => {
-        const path = new URL(req.url).pathname.slice("/src/".length);
-        const filePath = `./src/${path}`;
-        const file = Bun.file(filePath);
-        if (await file.exists()) {
-          const contentType =
-            filePath.endsWith(".ts") || filePath.endsWith(".tsx")
-              ? "application/javascript"
-              : filePath.endsWith(".css")
-                ? "text/css"
-                : "text/plain";
-          return new Response(file, { headers: { "Content-Type": contentType } });
-        }
-        return new Response("Not Found", { status: 404 });
-      },
-      "/api/report": async () => {
-        return Response.json(reportData);
-      },
-      "/api/approve": async (req) => {
-        try {
-          const body = await req.json();
-          const { id, retry, image } = body as { id: string; retry: number; image: string };
-
-          const test = reportData.tests[id];
-          if (test) {
-            if (!test.approved) test.approved = {};
-            (test.approved as Record<string, number>)[image] = retry;
-            await saveReport();
-
-            const actualUrl = test.results?.[retry]?.images?.[image]?.actual;
-            if (actualUrl && test.location?.file) {
-              const actualPath = actualUrl.replace("/screenshots/", `${reportData.screenshotDir}/`);
-              const snapshotPath = `${test.location.file}-snapshots/${image}-${test.browser}-${process.platform}.png`;
-              try {
-                await Bun.write(snapshotPath, Bun.file(actualPath));
-                console.log(`  ✔ Updated baseline: ${snapshotPath}`);
-              } catch (e) {
-                console.error(`  ✗ Failed to update baseline: ${e}`);
-              }
-            }
-
-            console.log(`  ✔ Approved [${test.browser}] ${test.title} — ${image}`);
-          }
-
-          return Response.json({ success: true });
-        } catch {
-          return Response.json({ success: false, error: "Invalid request" }, { status: 400 });
-        }
-      },
-      "/api/approve-all": async () => {
-        let approvedCount = 0;
-        const baselineUpdates: Promise<void>[] = [];
-
-        Object.values(reportData.tests).forEach((test) => {
-          if (!test?.results) return;
-          test.approved = {};
-          const lastRetry = test.results.length - 1;
-          const lastResult = test.results[lastRetry];
-          if (!lastResult?.images) return;
-          Object.keys(lastResult.images).forEach((imageName) => {
-            (test.approved as Record<string, number>)[imageName] = lastRetry;
-            approvedCount++;
-
-            const actualUrl = lastResult.images?.[imageName]?.actual;
-            if (actualUrl && test.location?.file) {
-              const actualPath = actualUrl.replace("/screenshots/", `${reportData.screenshotDir}/`);
-              const snapshotPath = `${test.location.file}-snapshots/${imageName}-${test.browser}-${process.platform}.png`;
-              baselineUpdates.push(
-                Bun.write(snapshotPath, Bun.file(actualPath))
-                  .then(() => {
-                    console.log(`  ✔ Updated baseline: ${snapshotPath}`);
-                  })
-                  .catch((e) => {
-                    console.error(`  ✗ Failed to update baseline: ${e}`);
-                  }),
-              );
-            }
-          });
-        });
-
-        await saveReport();
-        await Promise.all(baselineUpdates);
-        console.log(`  ✔ Approved all — ${approvedCount} image(s)`);
-        return Response.json({ success: true });
-      },
-      "/api/images/*": async (req) => {
-        const path = new URL(req.url).pathname.slice("/api/images/".length);
-        const imagePath = `./images/${path}`;
-        const file = Bun.file(imagePath);
-        if (await file.exists()) {
-          return new Response(file);
-        }
-        return Response.json({ error: "Image not found" }, { status: 404 });
-      },
-      "/screenshots/*": async (req) => {
-        const path = new URL(req.url).pathname.slice("/screenshots/".length);
-        const screenshotPath = `${reportData.screenshotDir}/${path}`;
-        const file = Bun.file(screenshotPath);
-        if (await file.exists()) {
-          return new Response(file);
-        }
-        return Response.json({ error: "Screenshot not found" }, { status: 404 });
-      },
-      "/dist/*": async (req) => {
-        const path = new URL(req.url).pathname.slice("/dist/".length);
-        const filePath = join(packageDir, "..", "dist", path);
-        const file = Bun.file(filePath);
-        if (await file.exists()) {
-          const contentType = filePath.endsWith(".css")
-            ? "text/css"
-            : filePath.endsWith(".js")
-              ? "application/javascript"
-              : filePath.endsWith(".svelte")
-                ? "text/plain"
-                : "application/octet-stream";
-          return new Response(file, { headers: { "Content-Type": contentType } });
-        }
-        return new Response("Not Found", { status: 404 });
-      },
-    },
+    routes,
     websocket: {
       open(ws) {
-        wsClients.add(ws);
+        wsClients.add(ws)
       },
       message(_ws, message) {
         try {
-          const msg = JSON.parse(message.toString()) as WebSocketMessage;
-          handleWebSocketMessage(msg).catch((e) => {
-            console.error("Error handling WebSocket message:", e);
-          });
-        } catch (e) {
-          console.error("Invalid WebSocket message:", e);
+          const parsed: unknown = JSON.parse(message.toString())
+          const wsMessage = safeParse(WebSocketMessageSchema, parsed)
+          if (wsMessage) {
+            handleWebSocketMessage(wsMessage).catch((err: unknown) => {
+              const errorMsg = err instanceof Error ? err.message : String(err)
+              console.error('Error handling WebSocket message:', errorMsg)
+            })
+          } else {
+            console.error('Invalid WebSocket message: missing or invalid type', parsed)
+          }
+        } catch (err: unknown) {
+          const errorMsg = err instanceof Error ? err.message : String(err)
+          console.error('Invalid WebSocket message:', errorMsg)
         }
       },
       close(ws) {
-        wsClients.delete(ws);
+        wsClients.delete(ws)
       },
     },
     development: {
       hmr: true,
       console: true,
     },
-  });
+  })
 
-  console.log(`Creevey Reporter started at http://localhost:${port}`);
+  console.log(`Creevey Reporter started at http://localhost:${port}`)
+}
+
+async function initData(options: ServerOptions): Promise<{ port: number; packageDir: string }> {
+  const port = options.port ?? 3000
+  reportData.screenshotDir = options.screenshotDir ?? './screenshots'
+  reportPath = options.reportPath ?? './report.json'
+
+  // Resolve static assets (index.html, dist/) relative to the package directory,
+  // while user files (report.json, screenshots/) resolve relative to cwd.
+  const packageDir = options.staticDir ?? import.meta.dir
+
+  await loadReport()
+  await loadOfflineReports()
+
+  return { port, packageDir }
+}
+
+export async function startServer(options: ServerOptions = {}): Promise<void> {
+  const { port, packageDir } = await initData(options)
+  runServer(port, packageDir)
 }
 
 // Auto-start when run directly (not imported)
 if (import.meta.main) {
-  await startServer();
+  await startServer()
 }

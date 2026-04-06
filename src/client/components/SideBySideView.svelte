@@ -14,7 +14,7 @@
     if (!src) return;
     const img = document.createElement('img');
     img.src = src;
-    const check = () => { isLandscape = img.naturalWidth > img.naturalHeight; };
+    const check = (): void => { isLandscape = img.naturalWidth > img.naturalHeight; };
     if (img.complete) check();
     else img.onload = check;
   });

@@ -13,6 +13,7 @@
 ## Task 1: Add Worker Index and Offline Types
 
 **Files:**
+
 - Modify: `src/types.ts`
 - Modify: `packages/playwright-reporter/index.ts`
 
@@ -22,22 +23,22 @@
 // Add to src/types.ts
 
 export interface WorkerInfo {
-  workerIndex: number;
-  isParallel: boolean;
+  workerIndex: number
+  isParallel: boolean
 }
 
 export interface OfflineEvent {
-  type: "test-begin" | "test-end" | "run-end";
-  data: unknown;
-  timestamp: number;
-  workerIndex: number;
+  type: 'test-begin' | 'test-end' | 'run-end'
+  data: unknown
+  timestamp: number
+  workerIndex: number
 }
 
 export interface OfflineReport {
-  version: number;
-  generatedAt: string;
-  workers: number;
-  events: OfflineEvent[];
+  version: number
+  generatedAt: string
+  workers: number
+  events: OfflineEvent[]
 }
 ```
 
@@ -46,10 +47,10 @@ export interface OfflineReport {
 ```typescript
 // In packages/playwright-reporter/index.ts, update CreeveyReporterOptions:
 export interface CreeveyReporterOptions {
-  serverUrl?: string;
-  screenshotDir?: string;
-  offlineReportPath?: string;  // New: path for offline report.json
-  enableOffline?: boolean;     // New: enable offline mode when server unavailable
+  serverUrl?: string
+  screenshotDir?: string
+  offlineReportPath?: string // New: path for offline report.json
+  enableOffline?: boolean // New: enable offline mode when server unavailable
 }
 ```
 
@@ -78,6 +79,7 @@ Expected: PASS (no new errors)
 ## Task 2: Implement Offline Event Queue
 
 **Files:**
+
 - Modify: `packages/playwright-reporter/index.ts`
 
 **Step 1: Add offline event creation helper**
@@ -103,7 +105,7 @@ private send(msg: object): void {
     this.ws.send(JSON.stringify(msg));
     return;
   }
-  
+
   // Fallback: queue event for offline processing
   if (this.isOfflineMode) {
     this.offlineEvents.push(this.createOfflineEvent((msg as any).type, (msg as any).data));
@@ -158,6 +160,7 @@ Expected: PASS
 ## Task 3: Write Offline Report on Test Run End
 
 **Files:**
+
 - Modify: `packages/playwright-reporter/index.ts`
 
 **Step 1: Add writeOfflineReport method**
@@ -177,7 +180,7 @@ private async writeOfflineReport(): Promise<void> {
       workers: this.workerIndex + 1,
       events: this.offlineEvents,
     };
-    
+
     await Bun.write(this.offlineReportPath, JSON.stringify(report, null, 2));
     console.log(`[CreeveyReporter] Wrote offline report: ${this.offlineReportPath}`);
   } catch (e) {
@@ -219,54 +222,53 @@ Expected: PASS
 ## Task 4: Write Tests for Offline Mode
 
 **Files:**
+
 - Create: `packages/playwright-reporter/offline.test.ts`
 
 **Step 1: Create offline mode tests**
 
 ```typescript
 // packages/playwright-reporter/offline.test.ts
-import { test, expect, afterEach } from "bun:test";
-import { existsSync, unlinkSync } from "fs";
-import { CreeveyReporter } from "./index";
+import { test, expect, afterEach } from 'bun:test'
+import { existsSync, unlinkSync } from 'fs'
+import { CreeveyReporter } from './index'
 
-const TEST_REPORT_PATH = "./test-offline-report.json";
+const TEST_REPORT_PATH = './test-offline-report.json'
 
 afterEach(() => {
   if (existsSync(TEST_REPORT_PATH)) {
-    unlinkSync(TEST_REPORT_PATH);
+    unlinkSync(TEST_REPORT_PATH)
   }
-  if (existsSync("./screenshots")) {
+  if (existsSync('./screenshots')) {
     // Clean up test screenshots
   }
-});
+})
 
-test("CreeveyReporter writes offline report when server unavailable", async () => {
+test('CreeveyReporter writes offline report when server unavailable', async () => {
   const reporter = new CreeveyReporter({
-    serverUrl: "ws://localhost:9999", // Non-existent server
+    serverUrl: 'ws://localhost:9999', // Non-existent server
     offlineReportPath: TEST_REPORT_PATH,
     enableOffline: true,
-  });
+  })
 
   // Trigger connection attempt which will fail
   // ... simulate onBegin/onTestEnd/onEnd
-  
-  expect(existsSync(TEST_REPORT_PATH)).toBe(true);
-});
 
-test("CreeveyReporter queues events when offline", async () => {
+  expect(existsSync(TEST_REPORT_PATH)).toBe(true)
+})
+
+test('CreeveyReporter queues events when offline', async () => {
   const reporter = new CreeveyReporter({
-    serverUrl: "ws://localhost:9999",
+    serverUrl: 'ws://localhost:9999',
     offlineReportPath: TEST_REPORT_PATH,
-  });
+  })
 
   // After WebSocket fails, events should be queued
-  const report = existsSync(TEST_REPORT_PATH) 
-    ? JSON.parse(await Bun.file(TEST_REPORT_PATH).text())
-    : null;
-  
-  expect(report).not.toBeNull();
-  expect(report.events).toBeDefined();
-});
+  const report = existsSync(TEST_REPORT_PATH) ? JSON.parse(await Bun.file(TEST_REPORT_PATH).text()) : null
+
+  expect(report).not.toBeNull()
+  expect(report.events).toBeDefined()
+})
 ```
 
 **Step 2: Run tests**
@@ -279,6 +281,7 @@ Expected: FAIL (feature not implemented yet)
 ## Task 5: Add Server-Side Offline Report Loading
 
 **Files:**
+
 - Modify: `src/server.ts`
 
 **Step 1: Add offline report merge function**
@@ -286,39 +289,39 @@ Expected: FAIL (feature not implemented yet)
 ```typescript
 // Add after loadReport() function
 interface OfflineReport {
-  version: number;
-  generatedAt: string;
-  workers: number;
+  version: number
+  generatedAt: string
+  workers: number
   events: Array<{
-    type: "test-begin" | "test-end" | "run-end";
-    data: unknown;
-    timestamp: number;
-    workerIndex: number;
-  }>;
+    type: 'test-begin' | 'test-end' | 'run-end'
+    data: unknown
+    timestamp: number
+    workerIndex: number
+  }>
 }
 
 function mergeOfflineReport(offlineReport: OfflineReport): void {
-  console.log(`[Server] Merging offline report from ${offlineReport.workers} workers`);
-  
+  console.log(`[Server] Merging offline report from ${offlineReport.workers} workers`)
+
   for (const event of offlineReport.events) {
-    handleWebSocketMessage({ type: event.type, data: event.data } as WebSocketMessage);
+    handleWebSocketMessage({ type: event.type, data: event.data } as WebSocketMessage)
   }
 }
 
 function loadOfflineReports(): void {
   try {
-    const offlineDir = ".";
-    const files = Array.from({ length: 8 }, (_, i) => `creevey-offline-report-${i}.json`);
-    files.push("creevey-offline-report.json");
-    
+    const offlineDir = '.'
+    const files = Array.from({ length: 8 }, (_, i) => `creevey-offline-report-${i}.json`)
+    files.push('creevey-offline-report.json')
+
     for (const file of files) {
-      const f = Bun.file(file);
+      const f = Bun.file(file)
       if (f.size > 0) {
         try {
-          const data = f.json() as OfflineReport;
+          const data = f.json() as OfflineReport
           if (data.version === 1 && Array.isArray(data.events)) {
-            console.log(`[Server] Loading offline report: ${file}`);
-            mergeOfflineReport(data);
+            console.log(`[Server] Loading offline report: ${file}`)
+            mergeOfflineReport(data)
             // Optionally rename/move processed file
           }
         } catch {
@@ -327,7 +330,7 @@ function loadOfflineReports(): void {
       }
     }
   } catch {
-    console.log("[Server] No offline reports found");
+    console.log('[Server] No offline reports found')
   }
 }
 ```
@@ -336,7 +339,7 @@ function loadOfflineReports(): void {
 
 ```typescript
 // After loadReport(), add:
-loadOfflineReports();
+loadOfflineReports()
 ```
 
 **Step 3: Run typecheck to verify**
@@ -349,15 +352,15 @@ Expected: PASS
 ## Task 6: Update Server to Support Matrix CI Reports
 
 **Files:**
+
 - Modify: `packages/playwright-reporter/index.ts`
 
 **Step 1: Add matrix worker file naming**
 
 ```typescript
 // In constructor, set worker-specific report path:
-const workerSuffix = process.env.TEST_WORKER_INDEX ?? "0";
-this.offlineReportPath = options.offlineReportPath 
-  ?? `./creevey-offline-report-${workerSuffix}.json`;
+const workerSuffix = process.env.TEST_WORKER_INDEX ?? '0'
+this.offlineReportPath = options.offlineReportPath ?? `./creevey-offline-report-${workerSuffix}.json`
 ```
 
 **Step 2: Run typecheck to verify**
@@ -370,6 +373,7 @@ Expected: PASS
 ## Task 7: Integration Test with Matrix CI Scenario
 
 **Files:**
+
 - Create: `examples/playwright-matrix/`
 - Create: `examples/playwright-matrix/playwright.config.ts`
 - Create: `examples/playwright-matrix/matrix.spec.ts`
@@ -378,39 +382,40 @@ Expected: PASS
 
 ```typescript
 // examples/playwright-matrix/playwright.config.ts
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
-  testDir: ".",
+  testDir: '.',
   fullyParallel: true,
-  workers: 3,  // Simulate matrix with 3 workers
+  workers: 3, // Simulate matrix with 3 workers
   reporter: [
-    ["./packages/playwright-reporter/index.ts", { 
-      serverUrl: "ws://localhost:9999",  // Wrong URL to trigger offline
-      enableOffline: true,
-    }],
+    [
+      './packages/playwright-reporter/index.ts',
+      {
+        serverUrl: 'ws://localhost:9999', // Wrong URL to trigger offline
+        enableOffline: true,
+      },
+    ],
   ],
-  projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-  ],
-});
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+})
 ```
 
 **Step 2: Create matrix test file**
 
 ```typescript
 // examples/playwright-matrix/matrix.spec.ts
-import { test, expect } from "@playwright/test";
+import { test, expect } from '@playwright/test'
 
-test("matrix test 1", async ({ page }) => {
-  await page.goto("http://localhost:3000");
-  await expect(page).toHaveScreenshot("matrix-1.png");
-});
+test('matrix test 1', async ({ page }) => {
+  await page.goto('http://localhost:3000')
+  await expect(page).toHaveScreenshot('matrix-1.png')
+})
 
-test("matrix test 2", async ({ page }) => {
-  await page.goto("http://localhost:3000");
-  await expect(page).toHaveScreenshot("matrix-2.png");
-});
+test('matrix test 2', async ({ page }) => {
+  await page.goto('http://localhost:3000')
+  await expect(page).toHaveScreenshot('matrix-2.png')
+})
 ```
 
 **Step 3: Test offline mode manually**
@@ -431,12 +436,13 @@ bun src/server.ts
 ## Task 8: Update Documentation
 
 **Files:**
+
 - Modify: `README.md` (or create if doesn't exist)
 - Add: `docs/offline-mode.md`
 
 **Step 1: Create offline mode documentation**
 
-```markdown
+````markdown
 # Offline Mode
 
 When the Creevey server is unavailable (e.g., CI matrix builds), the Playwright reporter can operate in offline mode to generate a local `report.json` file for later review.
@@ -457,19 +463,25 @@ When the Creevey server starts, it automatically scans for and loads any offline
 ```typescript
 // playwright.config.ts
 reporter: [
-  ["./packages/playwright-reporter/index.ts", { 
-    serverUrl: process.env.CI ? "ws://creevey-server:3000" : "ws://localhost:3000",
-    enableOffline: true,
-  }],
+  [
+    './packages/playwright-reporter/index.ts',
+    {
+      serverUrl: process.env.CI ? 'ws://creevey-server:3000' : 'ws://localhost:3000',
+      enableOffline: true,
+    },
+  ],
 ]
 ```
+````
 
 ## Artifacts
 
 Upload these files as CI artifacts:
+
 - `screenshots/` - all screenshots
 - `creevey-offline-report-*.json` - event data for each worker
-```
+
+````
 
 ---
 
@@ -479,7 +491,7 @@ Upload these files as CI artifacts:
 bun run typecheck    # Verify TypeScript compiles
 bun run lint        # Verify linting passes
 bun test            # Run all tests
-```
+````
 
 ---
 

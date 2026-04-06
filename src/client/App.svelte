@@ -97,7 +97,7 @@
       openSuite(tests, testPath, true);
       openedTestPath = testPath;
     }
-    return () => window.removeEventListener('popstate', handlePopState);
+    return (): void => window.removeEventListener('popstate', handlePopState);
   });
 
   $effect(() => {
@@ -173,7 +173,7 @@
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return (): void => document.removeEventListener('keydown', handleKeyDown);
   });
 
   function getFocusedIndex(path: string[]): number {
@@ -310,12 +310,12 @@
       }
     };
 
-    ws.onmessage = () => {
+    ws.onmessage = (): void => {
       clearTimeout(timer);
       timer = setTimeout(refresh, 50);
     };
 
-    return () => {
+    return (): void => {
       ws.close();
       clearTimeout(timer);
     };

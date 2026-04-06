@@ -37,25 +37,25 @@ Expected: svelte@^5.x.x listed
 **Step 1: Create index.ts**
 
 ```typescript
-import { mount } from "svelte";
-import { provideCreeveyContext } from "./client/CreeveyContext.svelte";
-import { App } from "./client/App.svelte";
-import type { CreeveySuite, CreeveyTest, TestData } from "./types.js";
+import { mount } from 'svelte'
+import { provideCreeveyContext } from './client/CreeveyContext.svelte'
+import { App } from './client/App.svelte'
+import type { CreeveySuite, CreeveyTest, TestData } from './types.js'
 
 interface InitialState {
-  tests: CreeveySuite;
-  isReport: boolean;
-  isUpdateMode: boolean;
+  tests: CreeveySuite
+  isReport: boolean
+  isUpdateMode: boolean
 }
 
 async function loadReportData(): Promise<InitialState> {
-  const response = await fetch("/api/report");
-  const data = await response.json();
+  const response = await fetch('/api/report')
+  const data = await response.json()
   return {
     tests: treeifyTests(data.tests as Record<string, TestData>),
     isReport: true,
     isUpdateMode: data.isUpdateMode ?? false,
-  };
+  }
 }
 
 function treeifyTests(testsById: Record<string, TestData>): CreeveySuite {
@@ -66,20 +66,18 @@ function treeifyTests(testsById: Record<string, TestData>): CreeveySuite {
     checked: true,
     indeterminate: false,
     children: {},
-  };
+  }
 
   Object.values(testsById).forEach((test) => {
-    if (!test) return;
+    if (!test) return
 
-    const storyPath = test.storyPath ?? [];
-    const browser = test.browser ?? "";
-    const testName = test.testName;
+    const storyPath = test.storyPath ?? []
+    const browser = test.browser ?? ''
+    const testName = test.testName
 
-    const pathParts: string[] = [...storyPath, testName, browser].filter((p): p is string =>
-      Boolean(p),
-    );
-    const [browserName, ...testPathParts] = pathParts.reverse();
-    if (!browserName) return;
+    const pathParts: string[] = [...storyPath, testName, browser].filter((p): p is string => Boolean(p))
+    const [browserName, ...testPathParts] = pathParts.reverse()
+    if (!browserName) return
 
     const lastSuite = testPathParts.reverse().reduce<CreeveySuite>((suite, token) => {
       if (!suite.children[token]) {
@@ -90,43 +88,43 @@ function treeifyTests(testsById: Record<string, TestData>): CreeveySuite {
           checked: true,
           indeterminate: false,
           children: {},
-        };
+        }
       }
-      return suite.children[token] as CreeveySuite;
-    }, rootSuite);
+      return suite.children[token] as CreeveySuite
+    }, rootSuite)
 
     lastSuite.children[browserName] = {
       ...test,
       checked: true,
-    } as CreeveyTest;
-  });
+    } as CreeveyTest
+  })
 
-  return rootSuite;
+  return rootSuite
 }
 
 const handleApprove = async (id: string, retry: number, image: string): Promise<void> => {
-  await fetch("/api/approve", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  await fetch('/api/approve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, retry, image }),
-  });
-  window.location.reload();
-};
+  })
+  window.location.reload()
+}
 
 const handleApproveAll = async (): Promise<void> => {
-  await fetch("/api/approve-all", { method: "POST" });
-  window.location.reload();
-};
+  await fetch('/api/approve-all', { method: 'POST' })
+  window.location.reload()
+}
 
 provideCreeveyContext({
   isReport: true,
   isUpdateMode: false,
   onApproveAll: handleApproveAll,
-});
+})
 
-const initialState = await loadReportData();
+const initialState = await loadReportData()
 
-const root = document.getElementById("root")!;
+const root = document.getElementById('root')!
 mount(App, {
   target: root,
   props: {
@@ -134,7 +132,7 @@ mount(App, {
     onApprove: handleApprove,
     onApproveAll: handleApproveAll,
   },
-});
+})
 ```
 
 **Step 2: Run typecheck**

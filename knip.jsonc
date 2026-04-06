@@ -2,7 +2,22 @@
   "$schema": "./node_modules/knip/schema.json",
 
   // Entry points
-  "entry": ["src/reporter.ts", "src/server.ts", "src/cli.ts", "src/index.ts", "build.ts"],
+  "entry": [
+    "src/reporter.ts",
+    "src/server.ts",
+    "src/server/index.ts",
+    "src/server/handlers.ts",
+    "src/server/routes.ts",
+    "src/server/utils.ts",
+    "src/client/helpers.ts",
+    "src/client/helpers/suite.ts",
+    "src/client/helpers/status.ts",
+    "src/client/helpers/path.ts",
+    "src/cli.ts",
+    "src/index.ts",
+    "src/schemas.ts",
+    "build.ts",
+  ],
 
   // All source files
   "project": ["src/**/*.ts", "tests/**/*.ts"],
@@ -22,7 +37,7 @@
     "nsTypes": "error",
     "duplicates": "error",
     "enumMembers": "error",
-    "catalog": "error"
+    "catalog": "error",
   },
 
   // Report unused exports even in entry files
@@ -36,5 +51,14 @@
   "ignore": ["dist/**", "tests/**/*.spec.ts", "tests/**/*.test.ts"],
 
   // Ignore Svelte/CSS handling (these are processed at build time)
-  "ignoreDependencies": ["svelte", "tailwindcss", "@tailwindcss/postcss", "postcss", "esbuild-svelte"]
+  // Also ignore zod and p-limit - they are used but knip doesn't detect them properly due to .ts extension imports
+  "ignoreDependencies": [
+    "svelte",
+    "tailwindcss",
+    "@tailwindcss/postcss",
+    "postcss",
+    "esbuild-svelte",
+    "zod",
+    "p-limit",
+  ],
 }

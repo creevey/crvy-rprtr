@@ -29,8 +29,8 @@
           new Promise<void>((resolve) => {
             const img = document.createElement('img');
             img.src = url;
-            img.onload = () => resolve();
-            img.onerror = () => resolve();
+            img.onload = (): void => resolve();
+            img.onerror = (): void => resolve();
           }),
       ),
     ).then(() => {

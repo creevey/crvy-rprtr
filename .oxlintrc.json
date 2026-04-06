@@ -26,9 +26,9 @@
     "typescript/no-wrapper-object-types": "error",
     "typescript/non-nullable-type-assertion-style": "error",
     "typescript/prefer-literal-enum-member": "error",
+    "typescript/promise-function-async": "off",
     "typescript/use-unknown-in-catch-callback-variable": "error",
-    "no-param-reassign": "error",
-    "eqeqeq": "error"
+    "no-param-reassign": "error"
   },
   "overrides": [
     {
@@ -38,25 +38,20 @@
         "max-lines": "off",
         "no-await-in-loop": "off",
         "typescript/no-confusing-void-expression": "off",
-        "typescript/no-unsafe-assignment": "off",
-        "typescript/no-unsafe-member-access": "off",
-        "typescript/no-unsafe-call": "off",
-        "typescript/no-unsafe-type-assertion": "off",
-        "typescript/strict-boolean-expressions": "off"
-      }
-    },
-    {
-      "files": ["build.ts"],
-      "rules": {
-        "typescript/explicit-function-return-type": "off"
+        "typescript/no-unsafe-type-assertion": "off"
       }
     },
     {
       "files": ["**/*.svelte"],
       "rules": {
         "max-lines": ["error", { "max": 500 }],
-        "max-lines-per-function": ["error", { "max": 100 }],
-        "typescript/explicit-function-return-type": "off"
+        "max-lines-per-function": ["error", { "max": 100 }]
+      }
+    },
+    {
+      "files": ["**/reporter.ts"],
+      "rules": {
+        "typescript/no-misused-promises": "off"
       }
     }
   ]

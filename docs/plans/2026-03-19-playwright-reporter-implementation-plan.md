@@ -13,6 +13,7 @@
 ## Task 1: Update Types for Playwright Integration
 
 **Files:**
+
 - Modify: `src/types.ts`
 
 **Step 1: Add Playwright-related types**
@@ -21,44 +22,44 @@
 // Add to src/types.ts
 
 export interface Attachment {
-  name: string;
-  path: string;
-  contentType: string;
+  name: string
+  path: string
+  contentType: string
 }
 
 export interface Location {
-  file: string;
-  line: number;
+  file: string
+  line: number
 }
 
 export interface PlaywrightTestResult {
-  id: string;
-  title: string;
-  location: Location;
-  status: "passed" | "failed" | "skipped";
-  attachments: Attachment[];
-  error?: string;
-  duration?: number;
+  id: string
+  title: string
+  location: Location
+  status: 'passed' | 'failed' | 'skipped'
+  attachments: Attachment[]
+  error?: string
+  duration?: number
 }
 
 export interface WebSocketMessage {
-  type: "test-begin" | "test-end" | "run-end" | "approve" | "sync";
-  data: unknown;
+  type: 'test-begin' | 'test-end' | 'run-end' | 'approve' | 'sync'
+  data: unknown
 }
 
 export interface TestBeginMessage {
-  type: "test-begin";
-  data: { id: string; title: string; location: Location };
+  type: 'test-begin'
+  data: { id: string; title: string; location: Location }
 }
 
 export interface TestEndMessage {
-  type: "test-end";
-  data: PlaywrightTestResult;
+  type: 'test-end'
+  data: PlaywrightTestResult
 }
 
 export interface RunEndMessage {
-  type: "run-end";
-  data: { status: "passed" | "failed" | "skipped"; count: number };
+  type: 'run-end'
+  data: { status: 'passed' | 'failed' | 'skipped'; count: number }
 }
 ```
 
@@ -67,33 +68,34 @@ export interface RunEndMessage {
 ```typescript
 // In TestData interface, add optional fields:
 export interface TestData {
-  id: string;
-  storyPath: string[];
-  browser: string;
-  testName?: string;
-  storyId: string;
-  skip?: boolean | string;
-  retries?: number;
-  status?: TestStatus;
-  results?: TestResult[];
-  approved?: Partial<Record<string, number>> | null;
+  id: string
+  storyPath: string[]
+  browser: string
+  testName?: string
+  storyId: string
+  skip?: boolean | string
+  retries?: number
+  status?: TestStatus
+  results?: TestResult[]
+  approved?: Partial<Record<string, number>> | null
   // Playwright integration
-  attachments?: Attachment[];
-  title?: string;
-  location?: Location;
+  attachments?: Attachment[]
+  title?: string
+  location?: Location
 }
 ```
 
 **Step 3: Add screenshotDir to ReportData in server.ts**
 
 Update `ReportData` interface in `src/server.ts`:
+
 ```typescript
 interface ReportData {
-  isRunning: boolean;
-  tests: Record<string, TestData>;
-  browsers: string[];
-  isUpdateMode: boolean;
-  screenshotDir: string;  // New: directory for Playwright screenshots
+  isRunning: boolean
+  tests: Record<string, TestData>
+  browsers: string[]
+  isUpdateMode: boolean
+  screenshotDir: string // New: directory for Playwright screenshots
 }
 ```
 
@@ -102,13 +104,14 @@ interface ReportData {
 ## Task 2: Implement WebSocket Message Handler in Server
 
 **Files:**
+
 - Modify: `src/server.ts`
 
 **Step 1: Add WebSocket clients tracking**
 
 ```typescript
 // Add at top of server.ts
-const wsClients = new Set<WebSocket>();
+const wsClients = new Set<WebSocket>()
 ```
 
 **Step 2: Update WebSocket handlers**
@@ -118,77 +121,83 @@ Bun.serve({
   // ... existing routes ...
   websocket: {
     open(ws) {
-      wsClients.add(ws);
-      console.log("WebSocket connected. Clients:", wsClients.size);
+      wsClients.add(ws)
+      console.log('WebSocket connected. Clients:', wsClients.size)
     },
     message(ws, message) {
       try {
-        const msg = JSON.parse(message) as WebSocketMessage;
-        handleWebSocketMessage(msg);
+        const msg = JSON.parse(message) as WebSocketMessage
+        handleWebSocketMessage(msg)
       } catch (e) {
-        console.error("Invalid WebSocket message:", e);
+        console.error('Invalid WebSocket message:', e)
       }
     },
     close(ws) {
-      wsClients.remove(ws);
-      console.log("WebSocket disconnected. Clients:", wsClients.size);
+      wsClients.remove(ws)
+      console.log('WebSocket disconnected. Clients:', wsClients.size)
     },
   },
-});
+})
 
 function handleWebSocketMessage(msg: WebSocketMessage): void {
   switch (msg.type) {
-    case "test-begin": {
-      const { id, title, location } = msg.data as TestBeginMessage["data"];
+    case 'test-begin': {
+      const { id, title, location } = msg.data as TestBeginMessage['data']
       if (!reportData.tests[id]) {
         reportData.tests[id] = {
           id,
           storyId: id,
           storyPath: [],
-          browser: "",
+          browser: '',
           title,
           location,
-          status: "running",
-        };
+          status: 'running',
+        }
       }
-      break;
+      break
     }
-    case "test-end": {
-      const data = msg.data as TestEndMessage["data"];
+    case 'test-end': {
+      const data = msg.data as TestEndMessage['data']
       if (reportData.tests[data.id]) {
-        reportData.tests[data.id].attachments = data.attachments;
-        reportData.tests[data.id].status = mapStatus(data.status);
-        reportData.tests[data.id].results = [{
-          status: data.status === "passed" ? "success" : "failed",
-          retries: 0,
-          error: data.error,
-          duration: data.duration,
-        }];
+        reportData.tests[data.id].attachments = data.attachments
+        reportData.tests[data.id].status = mapStatus(data.status)
+        reportData.tests[data.id].results = [
+          {
+            status: data.status === 'passed' ? 'success' : 'failed',
+            retries: 0,
+            error: data.error,
+            duration: data.duration,
+          },
+        ]
       }
-      broadcastToBrowsers({ type: "test-update", data });
-      break;
+      broadcastToBrowsers({ type: 'test-update', data })
+      break
     }
-    case "run-end": {
-      reportData.isRunning = false;
-      broadcastToBrowsers({ type: "run-end", data: msg.data });
-      break;
+    case 'run-end': {
+      reportData.isRunning = false
+      broadcastToBrowsers({ type: 'run-end', data: msg.data })
+      break
     }
   }
 }
 
 function broadcastToBrowsers(msg: object): void {
-  const payload = JSON.stringify(msg);
+  const payload = JSON.stringify(msg)
   wsClients.forEach((ws) => {
-    ws.send(payload);
-  });
+    ws.send(payload)
+  })
 }
 
-function mapStatus(status: "passed" | "failed" | "skipped"): TestStatus {
+function mapStatus(status: 'passed' | 'failed' | 'skipped'): TestStatus {
   switch (status) {
-    case "passed": return "success";
-    case "failed": return "failed";
-    case "skipped": return "pending";
-    default: return "unknown";
+    case 'passed':
+      return 'success'
+    case 'failed':
+      return 'failed'
+    case 'skipped':
+      return 'pending'
+    default:
+      return 'unknown'
   }
 }
 ```
@@ -213,22 +222,23 @@ function mapStatus(status: "passed" | "failed" | "skipped"): TestStatus {
 ## Task 3: Update Client for Real-Time Updates
 
 **Files:**
+
 - Modify: `src/index.ts`
 
 **Step 1: Add WebSocket connection for browser updates**
 
 ```typescript
 // Add before mount() call
-const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
-const wsUrl = `${wsProtocol}//${location.host}`;
+const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+const wsUrl = `${wsProtocol}//${location.host}`
 
-const ws = new WebSocket(wsUrl);
+const ws = new WebSocket(wsUrl)
 ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-  if (msg.type === "test-update" || msg.type === "run-end") {
-    window.location.reload();
+  const msg = JSON.parse(event.data)
+  if (msg.type === 'test-update' || msg.type === 'run-end') {
+    window.location.reload()
   }
-};
+}
 ```
 
 ---
@@ -236,6 +246,7 @@ ws.onmessage = (event) => {
 ## Task 4: Create Playwright Reporter Package
 
 **Files:**
+
 - Create: `packages/playwright-reporter/index.ts`
 - Create: `packages/playwright-reporter/package.json`
 
@@ -261,61 +272,54 @@ mkdir -p packages/playwright-reporter
 
 ```typescript
 // packages/playwright-reporter/index.ts
-import type {
-  Reporter,
-  FullConfig,
-  Suite,
-  TestCase,
-  TestResult,
-  FullResult,
-} from "@playwright/test/reporter";
+import type { Reporter, FullConfig, Suite, TestCase, TestResult, FullResult } from '@playwright/test/reporter'
 
 export interface CreeveyReporterOptions {
-  serverUrl: string;
-  screenshotDir?: string;
-  saveScreenshots?: boolean;
+  serverUrl: string
+  screenshotDir?: string
+  saveScreenshots?: boolean
 }
 
 interface AttachmentData {
-  name: string;
-  path: string;
-  contentType: string;
+  name: string
+  path: string
+  contentType: string
 }
 
 export class CreeveyReporter implements Reporter {
-  private ws: WebSocket | null = null;
-  private serverUrl: string;
-  private screenshotDir: string;
-  private saveScreenshots: boolean;
-  private pendingAttachments: Map<string, AttachmentData[]> = new Map();
+  private ws: WebSocket | null = null
+  private serverUrl: string
+  private screenshotDir: string
+  private saveScreenshots: boolean
+  private pendingAttachments: Map<string, AttachmentData[]> = new Map()
 
   constructor(options: CreeveyReporterOptions = {}) {
-    this.serverUrl = options.serverUrl ?? "ws://localhost:3000";
-    this.screenshotDir = options.screenshotDir ?? "./screenshots";
-    this.saveScreenshots = options.saveScreenshots ?? true;
+    this.serverUrl = options.serverUrl ?? 'ws://localhost:3000'
+    this.screenshotDir = options.screenshotDir ?? './screenshots'
+    this.saveScreenshots = options.saveScreenshots ?? true
   }
 
   async onBegin(config: FullConfig, suite: Suite): Promise<void> {
-    console.log(`[CreeveyReporter] Starting run with ${suite.allTests().length} tests`);
-    this.connect();
+    console.log(`[CreeveyReporter] Starting run with ${suite.allTests().length} tests`)
+    this.connect()
   }
 
   private connect(): void {
-    this.ws = new WebSocket(this.serverUrl);
+    this.ws = new WebSocket(this.serverUrl)
     this.ws.onopen = () => {
-      console.log("[CreeveyReporter] Connected to Creevey server");
-    };
+      console.log('[CreeveyReporter] Connected to Creevey server')
+    }
     this.ws.onerror = (error) => {
-      console.error("[CreeveyReporter] WebSocket error:", error);
-    };
+      console.error('[CreeveyReporter] WebSocket error:', error)
+    }
     this.ws.onclose = () => {
-      console.log("[CreeveyReporter] Disconnected from Creevey server");
-    };
+      console.log('[CreeveyReporter] Disconnected from Creevey server')
+    }
   }
 
   onTestBegin(test: TestCase): void {
     this.send({
-      type: "test-begin",
+      type: 'test-begin',
       data: {
         id: test.id,
         title: test.title,
@@ -324,20 +328,20 @@ export class CreeveyReporter implements Reporter {
           line: test.location.line,
         },
       },
-    });
+    })
   }
 
   async onTestEnd(test: TestCase, result: TestResult): Promise<void> {
     const attachments = result.attachments
-      .filter((a) => a.contentType === "image/png" && a.path)
+      .filter((a) => a.contentType === 'image/png' && a.path)
       .map((a) => ({
         name: a.name,
         path: a.path!,
         contentType: a.contentType,
-      }));
+      }))
 
     this.send({
-      type: "test-end",
+      type: 'test-end',
       data: {
         id: test.id,
         title: test.title,
@@ -346,30 +350,30 @@ export class CreeveyReporter implements Reporter {
         error: result.errors.length > 0 ? result.errors[0].message : undefined,
         duration: result.duration,
       },
-    });
+    })
   }
 
   onEnd(result: FullResult): void {
     this.send({
-      type: "run-end",
+      type: 'run-end',
       data: {
         status: result.status,
         count: result.tests.length,
       },
-    });
+    })
     if (this.ws) {
-      this.ws.close();
+      this.ws.close()
     }
   }
 
   private send(msg: object): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(msg));
+      this.ws.send(JSON.stringify(msg))
     }
   }
 }
 
-export default CreeveyReporter;
+export default CreeveyReporter
 ```
 
 ---
@@ -377,6 +381,7 @@ export default CreeveyReporter;
 ## Task 5: Add Example Playwright Config
 
 **Files:**
+
 - Create: `examples/playwright/playwright.config.ts`
 - Create: `examples/playwright/example.spec.ts`
 - Create: `examples/playwright/package.json`
@@ -402,36 +407,33 @@ export default CreeveyReporter;
 **Step 2: Create example playwright config**
 
 ```typescript
-import { defineConfig, devices } from "@playwright/test";
-import { CreeveyReporter } from "@creevey/playwright-reporter";
+import { defineConfig, devices } from '@playwright/test'
+import { CreeveyReporter } from '@creevey/playwright-reporter'
 
 export default defineConfig({
-  testDir: ".",
-  reporter: [
-    ["./packages/playwright-reporter/index.ts", { serverUrl: "ws://localhost:3000" }],
-    ["html"],
-  ],
+  testDir: '.',
+  reporter: [['./packages/playwright-reporter/index.ts', { serverUrl: 'ws://localhost:3000' }], ['html']],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: 'http://localhost:3000',
   },
   projects: [
     {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
-});
+})
 ```
 
 **Step 3: Create example test**
 
 ```typescript
-import { test, expect } from "@playwright/test";
+import { test, expect } from '@playwright/test'
 
-test("homepage looks correct", async ({ page }) => {
-  await page.goto("http://localhost:3000");
-  await expect(page).toHaveScreenshot("homepage.png");
-});
+test('homepage looks correct', async ({ page }) => {
+  await page.goto('http://localhost:3000')
+  await expect(page).toHaveScreenshot('homepage.png')
+})
 ```
 
 ---
@@ -439,6 +441,7 @@ test("homepage looks correct", async ({ page }) => {
 ## Task 6: Update package.json Scripts
 
 **Files:**
+
 - Modify: `package.json`
 
 **Step 1: Add workspace script for running example**
@@ -502,6 +505,7 @@ cd examples/playwright && bun playwright test  # Run example tests
 ## Follow-up
 
 After implementation, consider:
+
 1. Adding retry logic for WebSocket reconnection
 2. Implementing batch updates for large test suites
 3. Adding authentication for WebSocket connections in production

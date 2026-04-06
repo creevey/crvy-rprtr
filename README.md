@@ -15,11 +15,11 @@ npm install --save-dev @creevey/playwright-reporter
 Add the reporter to your `playwright.config.ts`:
 
 ```ts
-import { defineConfig } from "@playwright/test";
+import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
-  reporter: [["@creevey/playwright-reporter", { screenshotDir: "./screenshots" }]],
-});
+  reporter: [['@creevey/playwright-reporter', { screenshotDir: './screenshots' }]],
+})
 ```
 
 ## Viewing Results
@@ -70,13 +70,13 @@ When the server isn't running during tests, the reporter automatically falls bac
 ## Programmatic API
 
 ```ts
-import { startServer } from "@creevey/playwright-reporter/server";
+import { startServer } from '@creevey/playwright-reporter/server'
 
 await startServer({
   port: 3000,
-  screenshotDir: "./screenshots",
-  reportPath: "./report.json",
-});
+  screenshotDir: './screenshots',
+  reportPath: './report.json',
+})
 ```
 
 ## Development

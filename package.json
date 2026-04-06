@@ -64,6 +64,10 @@
     "prepublishOnly": "bun run build",
     "prepare": "[ -d .git ] && cp scripts/pre-commit.sh .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit || true"
   },
+  "dependencies": {
+    "p-limit": "^7.3.0",
+    "zod": "^4.3.6"
+  },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.2.2",
@@ -81,13 +85,9 @@
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "@playwright/test": ">=1.40",
-    "typescript": "^5"
+    "@playwright/test": ">=1.40"
   },
   "engines": {
     "bun": ">=1.0.0"
-  },
-  "dependencies": {
-    "p-limit": "^7.3.0"
   }
 }

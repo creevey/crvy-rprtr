@@ -97,19 +97,19 @@ Extract the current top-level `Bun.serve(...)` and the `loadReport()` / `loadOff
 
 ```ts
 export interface ServerOptions {
-  port?: number;
-  screenshotDir?: string;
-  reportPath?: string;
+  port?: number
+  screenshotDir?: string
+  reportPath?: string
   /** Absolute path to the directory containing index.html and dist/ */
-  staticDir?: string;
+  staticDir?: string
 }
 
 export async function startServer(options: ServerOptions = {}): Promise<void> {
-  const port = options.port ?? 3000;
-  const screenshotDir = options.screenshotDir ?? "./screenshots";
+  const port = options.port ?? 3000
+  const screenshotDir = options.screenshotDir ?? './screenshots'
   // ... move current top-level initialization logic here
   // ... move Bun.serve() here
-  console.log(`Creevey Reporter started at http://localhost:${port}`);
+  console.log(`Creevey Reporter started at http://localhost:${port}`)
 }
 ```
 
@@ -118,7 +118,7 @@ Keep the current auto-start behavior when the file is run directly:
 ```ts
 // Auto-start when run directly (not imported)
 if (import.meta.main) {
-  await startServer();
+  await startServer()
 }
 ```
 
@@ -126,23 +126,23 @@ if (import.meta.main) {
 
 ```ts
 #!/usr/bin/env bun
-import { parseArgs } from "util";
-import { startServer } from "./server.ts";
+import { parseArgs } from 'util'
+import { startServer } from './server.ts'
 
 const { values } = parseArgs({
   args: process.argv.slice(2),
   options: {
-    port: { type: "string", short: "p", default: "3000" },
-    "screenshot-dir": { type: "string", short: "s", default: "./screenshots" },
-    "report-path": { type: "string", short: "r", default: "./report.json" },
+    port: { type: 'string', short: 'p', default: '3000' },
+    'screenshot-dir': { type: 'string', short: 's', default: './screenshots' },
+    'report-path': { type: 'string', short: 'r', default: './report.json' },
   },
-});
+})
 
 await startServer({
-  port: parseInt(values.port ?? "3000", 10),
-  screenshotDir: values["screenshot-dir"] ?? "./screenshots",
-  reportPath: values["report-path"] ?? "./report.json",
-});
+  port: parseInt(values.port ?? '3000', 10),
+  screenshotDir: values['screenshot-dir'] ?? './screenshots',
+  reportPath: values['report-path'] ?? './report.json',
+})
 ```
 
 **Step 3: Verify the server still starts**
@@ -206,14 +206,14 @@ Add esbuild entries for the server-side files (reporter, server, cli, types) alo
 ```ts
 // Build server-side JS (reporter, server, CLI)
 await build({
-  entryPoints: ["./src/reporter.ts", "./src/server.ts", "./src/cli.ts"],
+  entryPoints: ['./src/reporter.ts', './src/server.ts', './src/cli.ts'],
   bundle: false,
-  outdir: "./dist",
-  format: "esm",
-  target: "es2022",
-  platform: "node",
-  packages: "external",
-});
+  outdir: './dist',
+  format: 'esm',
+  target: 'es2022',
+  platform: 'node',
+  packages: 'external',
+})
 
 // Generate .d.ts files via tsc
 // Run: tsc --project tsconfig.build.json
@@ -253,7 +253,7 @@ When the package is installed in `node_modules`, the server needs to resolve `in
 In the `startServer` function, resolve `index.html` and `dist/*` paths relative to the package's own directory (`import.meta.dir` or a `staticDir` option), while resolving `report.json`, `screenshots/`, and `creevey-offline-report-*.json` relative to `process.cwd()`.
 
 ```ts
-const packageDir = options.staticDir ?? import.meta.dir;
+const packageDir = options.staticDir ?? import.meta.dir
 // index.html → resolve from packageDir
 // dist/* → resolve from packageDir
 // report.json → resolve from cwd
@@ -514,18 +514,18 @@ npm install --save-dev @creevey/playwright-reporter
 Add the reporter to your `playwright.config.ts`:
 
 ```ts
-import { defineConfig } from "@playwright/test";
+import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   reporter: [
     [
-      "@creevey/playwright-reporter",
+      '@creevey/playwright-reporter',
       {
-        screenshotDir: "./screenshots",
+        screenshotDir: './screenshots',
       },
     ],
   ],
-});
+})
 ```
 
 ## Viewing Results

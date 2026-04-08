@@ -49,8 +49,15 @@ export class CreeveyReporter implements Reporter {
   }
 
   private connect(): void {
+    const WebSocketConstructor = globalThis.WebSocket
+    if (typeof WebSocketConstructor !== 'function') {
+      console.log('[CreeveyReporter] WebSocket unavailable in current runtime; offline mode enabled')
+      this.enableOfflineMode()
+      return
+    }
+
     try {
-      this.ws = new WebSocket(this.serverUrl)
+      this.ws = new WebSocketConstructor(this.serverUrl)
       this.ws.onopen = (): void => {
         console.log('[CreeveyReporter] Connected to Creevey server')
         this.isOfflineMode = false

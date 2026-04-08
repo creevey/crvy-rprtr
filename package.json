@@ -58,7 +58,7 @@
     "typecheck": "tsc --noEmit",
     "knip": "knip-bun --strict",
     "duplicates": "jscpd",
-    "test:bun": "bun test tests/*.test.ts",
+    "test:bun": "bun run build && bun test tests/*.test.ts",
     "test:playwright": "bun run build && bunx playwright test",
     "test": "bun run test:bun && bun run test:playwright",
     "test:ui": "bun run build && bunx playwright test --ui",

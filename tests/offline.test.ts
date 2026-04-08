@@ -144,4 +144,44 @@ describe('Offline Mode', () => {
     expect(report.events).toHaveLength(1)
     expect(report.events[0]?.type).toBe('run-end')
   })
+
+  test('reporter enters offline mode when WebSocket is unavailable in the runtime', async () => {
+    const { CreeveyReporter } = await import('../src/reporter')
+    const originalWebSocketDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'WebSocket')
+    Object.defineProperty(globalThis, 'WebSocket', {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    })
+
+    try {
+      const reporter = new CreeveyReporter({
+        serverUrl: 'ws://localhost:3000',
+        screenshotDir: './test-offline-screenshots',
+        reportHtmlPath: TEST_ARTIFACT_PATH,
+      })
+
+      type TestReporter = {
+        connect: () => void
+        onEnd: (result: { status: string }) => Promise<void>
+      }
+      const reporterAny = reporter as unknown as TestReporter
+
+      reporterAny.connect()
+      await reporterAny.onEnd({ status: 'passed' })
+
+      expect(existsSync(TEST_REPORT_PATH)).toBe(true)
+
+      const reportContent = await readFile(TEST_REPORT_PATH, 'utf-8')
+      const parsed: unknown = JSON.parse(reportContent)
+      const report = assertValidOfflineReport(parsed)
+
+      expect(report.events).toHaveLength(1)
+      expect(report.events[0]?.type).toBe('run-end')
+    } finally {
+      if (originalWebSocketDescriptor !== undefined) {
+        Object.defineProperty(globalThis, 'WebSocket', originalWebSocketDescriptor)
+      }
+    }
+  })
 })

@@ -83,7 +83,9 @@ async function getPackagedAssetPath(fileName: string): Promise<string> {
     return resolvedAssetPath
   }
 
-  return resolve(candidates[0]!, fileName)
+  throw new Error(
+    `Could not find packaged asset "${fileName}". Run "bun run build" before generating report artifacts.`,
+  )
 }
 
 function buildStaticBootstrapData(

@@ -11,6 +11,8 @@
     isReport: boolean;
     isRunning: boolean;
     isUpdateMode: boolean;
+    approvalEnabled: boolean;
+    approvalMessage?: string;
     filter: CreeveyViewFilter;
     canApprove: boolean;
     onFilterChange: (filter: CreeveyViewFilter) => void;
@@ -25,7 +27,7 @@
   }
 
   let {
-    tests, selectedId, focusedPath, isReport, isRunning, isUpdateMode, filter, canApprove,
+    tests, selectedId, focusedPath, isReport, isRunning, isUpdateMode, approvalEnabled, approvalMessage, filter, canApprove,
     onFilterChange, onSelect, onOpen, onToggle, onStart, onStop, onApprove, onNext, onApproveAll
   }: Props = $props();
 
@@ -164,29 +166,35 @@
   </div>
 
   <!-- Footer -->
-  <div class="py-3 px-4 border-t border-edge bg-surface-alt flex gap-2 shrink-0">
-    {#if isAlt}
+  <div class="py-3 px-4 border-t border-edge bg-surface-alt shrink-0">
+    <div class="flex gap-2">
+      {#if isAlt}
+        <button
+          class="flex-1 px-4 py-1.5 border border-edge rounded text-ui cursor-pointer transition-colors text-center bg-transparent text-fg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-accent"
+          disabled={!canApprove}
+          onclick={onNext}
+        >
+          Next &#8250;
+        </button>
+      {:else}
+        <button
+          class="flex-1 px-4 py-1.5 border border-success rounded text-ui cursor-pointer transition-colors text-center bg-success text-white font-semibold hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-accent"
+          disabled={!canApprove}
+          onclick={onApprove}
+        >
+          Approve &#8250;
+        </button>
+      {/if}
       <button
         class="flex-1 px-4 py-1.5 border border-edge rounded text-ui cursor-pointer transition-colors text-center bg-transparent text-fg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-accent"
-        disabled={!canApprove}
-        onclick={onNext}
+        disabled={!approvalEnabled}
+        onclick={() => { if (confirm('Approve all failed screenshots?')) onApproveAll(); }}
       >
-        Next &#8250;
+        Approve All
       </button>
-    {:else}
-      <button
-        class="flex-1 px-4 py-1.5 border border-success rounded text-ui cursor-pointer transition-colors text-center bg-success text-white font-semibold hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-accent"
-        disabled={!canApprove}
-        onclick={onApprove}
-      >
-        Approve &#8250;
-      </button>
+    </div>
+    {#if !approvalEnabled && approvalMessage}
+      <div class="mt-2 text-center text-xs text-fg-muted">{approvalMessage}</div>
     {/if}
-    <button
-      class="flex-1 px-4 py-1.5 border border-edge rounded text-ui cursor-pointer transition-colors text-center bg-transparent text-fg hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-accent"
-      onclick={() => { if (confirm('Approve all failed screenshots?')) onApproveAll(); }}
-    >
-      Approve All
-    </button>
   </div>
 </div>

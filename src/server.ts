@@ -1,9 +1,11 @@
+import { dirname, join } from 'path'
+
 import type { ServerWebSocket } from 'bun'
 import pLimit from 'p-limit'
 
+import { findOfflineReportPaths, mergeOfflineReportsIntoTests, parseOfflineReport } from './offline-reports.ts'
 import {
   LoadedReportDataSchema,
-  OfflineReportSchema,
   TestBeginDataSchema,
   TestEndDataSchema,
   WebSocketMessageSchema,
@@ -26,7 +28,8 @@ export interface ServerOptions {
   port?: number
   screenshotDir?: string
   reportPath?: string
-  /** Absolute path to the directory containing index.html and dist/ */
+  offlineReportDir?: string
+  /** Absolute path to the built web UI assets directory, or its parent directory */
   staticDir?: string
 }
 
@@ -50,6 +53,7 @@ const reportData: ReportData = {
 }
 
 let reportPath = './report.json'
+let offlineReportDir = '.'
 
 async function loadReport(): Promise<void> {
   try {
@@ -71,46 +75,44 @@ async function saveReport(): Promise<void> {
   await Bun.write(reportPath, JSON.stringify(reportData, null, 2))
 }
 
-async function mergeOfflineReport(offlineReport: import('./schemas.ts').OfflineReport): Promise<void> {
-  console.log(`[Server] Merging offline report from ${offlineReport.workers} worker(s)`)
-  const limit = pLimit(MAX_CONCURRENT_FILE_OPS)
+async function loadOfflineReports(): Promise<void> {
+  const offlineReportPaths = await findOfflineReportPaths(offlineReportDir)
+  if (offlineReportPaths.length === 0) {
+    return
+  }
 
-  const eventPromises = offlineReport.events.map((event) =>
-    limit(() =>
-      handleWebSocketMessage({
-        type: event.type,
-        data: event.data,
-      } as WebSocketMessage),
+  const limit = pLimit(MAX_CONCURRENT_FILE_OPS)
+  const reports = await Promise.all(
+    offlineReportPaths.map((filePath) =>
+      limit(async () => {
+        const f = Bun.file(filePath)
+        if (f.size > 0) {
+          try {
+            const raw: unknown = await f.json()
+            const parsed = parseOfflineReport(raw)
+            if (parsed !== null) {
+              console.log(`[Server] Loading offline report: ${filePath}`)
+              return parsed
+            }
+          } catch {
+            // Skip invalid files
+          }
+        }
+
+        return null
+      }),
     ),
   )
 
-  await Promise.all(eventPromises)
-}
+  const validReports = reports.filter((report): report is import('./schemas.ts').OfflineReport => report !== null)
+  if (validReports.length === 0) {
+    return
+  }
 
-async function loadOfflineReports(): Promise<void> {
-  const workerIdx = parseInt(process.env.TEST_WORKER_INDEX ?? '0', 10)
-  const patterns = [`creevey-offline-report-${workerIdx}.json`, 'creevey-offline-report.json']
-  const limit = pLimit(MAX_CONCURRENT_FILE_OPS)
-
-  const loadPromises = patterns.map((file) =>
-    limit(async () => {
-      const f = Bun.file(file)
-      if (f.size > 0) {
-        try {
-          const raw: unknown = await f.json()
-          const parsed = safeParse(OfflineReportSchema, raw)
-          if (parsed && parsed.version === 1 && Array.isArray(parsed.events)) {
-            console.log(`[Server] Loading offline report: ${file}`)
-            void mergeOfflineReport(parsed)
-          }
-        } catch {
-          // Skip invalid files
-        }
-      }
-    }),
-  )
-
-  await Promise.all(loadPromises)
+  reportData.tests = mergeOfflineReportsIntoTests(reportData.tests, validReports, {
+    screenshotDir: reportData.screenshotDir,
+    screenshotsBaseUrl: '/screenshots/',
+  })
 }
 
 function getHandlerContext(): HandlerContext {
@@ -160,10 +162,31 @@ async function handleWebSocketMessage(msg: WebSocketMessage): Promise<void> {
   }
 }
 
-function runServer(port: number, packageDir: string): void {
+async function resolveStaticDir(staticDir?: string): Promise<string> {
+  const candidates =
+    staticDir === undefined
+      ? [import.meta.dir, join(import.meta.dir, '..', 'dist')]
+      : [staticDir, join(staticDir, 'dist')]
+
+  const resolvedCandidates = await Promise.all(
+    candidates.map(async (candidate) => ({
+      candidate,
+      exists: await Bun.file(join(candidate, 'index.html')).exists(),
+    })),
+  )
+
+  const resolved = resolvedCandidates.find(({ exists }) => exists)
+  if (resolved !== undefined) {
+    return resolved.candidate
+  }
+
+  return candidates[0]!
+}
+
+function runServer(port: number, staticDir: string): void {
   const routes = createRoutes({
     reportData,
-    packageDir,
+    staticDir,
     saveReport,
   })
 
@@ -204,24 +227,25 @@ function runServer(port: number, packageDir: string): void {
   console.log(`Creevey Reporter started at http://localhost:${port}`)
 }
 
-async function initData(options: ServerOptions): Promise<{ port: number; packageDir: string }> {
+async function initData(options: ServerOptions): Promise<{ port: number; staticDir: string }> {
   const port = options.port ?? 3000
   reportData.screenshotDir = options.screenshotDir ?? './screenshots'
   reportPath = options.reportPath ?? './report.json'
+  offlineReportDir = options.offlineReportDir ?? dirname(reportPath)
 
-  // Resolve static assets (index.html, dist/) relative to the package directory,
+  // Resolve built web assets relative to the current runtime layout,
   // while user files (report.json, screenshots/) resolve relative to cwd.
-  const packageDir = options.staticDir ?? import.meta.dir
+  const staticDir = await resolveStaticDir(options.staticDir)
 
   await loadReport()
   await loadOfflineReports()
 
-  return { port, packageDir }
+  return { port, staticDir }
 }
 
 export async function startServer(options: ServerOptions = {}): Promise<void> {
-  const { port, packageDir } = await initData(options)
-  runServer(port, packageDir)
+  const { port, staticDir } = await initData(options)
+  runServer(port, staticDir)
 }
 
 // Auto-start when run directly (not imported)

@@ -11,7 +11,7 @@ export interface RoutesContext {
     isUpdateMode: boolean
     screenshotDir: string
   }
-  packageDir: string
+  staticDir: string
   saveReport: () => Promise<void>
 }
 
@@ -21,7 +21,7 @@ function handleRoot(
   server: { upgrade: (req: Request) => boolean },
 ): Response | undefined {
   if (server.upgrade(req)) return
-  const html = Bun.file(join(ctx.packageDir, '..', 'index.html'))
+  const html = Bun.file(join(ctx.staticDir, 'index.html'))
   return new Response(html, { headers: { 'Content-Type': 'text/html' } })
 }
 
@@ -159,7 +159,7 @@ async function handleScreenshots(ctx: RoutesContext, req: Request): Promise<Resp
 
 async function handleDist(ctx: RoutesContext, req: Request): Promise<Response> {
   const path = new URL(req.url).pathname.slice('/dist/'.length)
-  const filePath = join(ctx.packageDir, '..', 'dist', path)
+  const filePath = join(ctx.staticDir, path)
   const file = Bun.file(filePath)
   if (await file.exists()) {
     const contentType = filePath.endsWith('.css')

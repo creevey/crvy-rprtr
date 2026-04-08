@@ -30,11 +30,14 @@
     initialTests: CreeveySuite;
     isReport: boolean;
     isUpdateMode: boolean;
+    liveUpdates: boolean;
+    approvalEnabled: boolean;
+    approvalMessage?: string;
     onApprove: (id: string, retry: number, image: string) => Promise<void>;
     onApproveAll: () => Promise<void>;
   }
 
-  let { initialTests, isReport, isUpdateMode, onApprove, onApproveAll }: Props = $props();
+  let { initialTests, isReport, isUpdateMode, liveUpdates, approvalEnabled, approvalMessage, onApprove, onApproveAll }: Props = $props();
 
   // svelte-ignore state_referenced_locally — intentionally capture initial value for local mutation
   let tests = $state(initialTests);
@@ -53,7 +56,7 @@
   let testResult = $derived(openedTest?.results?.[retry - 1] ?? null);
   let currentImage = $derived(testResult?.images?.[imageName] ?? null);
   let canApprove = $derived(
-    Boolean(
+    approvalEnabled && Boolean(
       openedTest?.results?.[retry - 1]?.images &&
       openedTest.approved?.[imageName] !== retry - 1 &&
       openedTest.results[retry - 1]?.status !== 'success',
@@ -293,6 +296,10 @@
   }
 
   $effect(() => {
+    if (!liveUpdates) {
+      return;
+    }
+
     const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${wsProtocol}//${location.host}`);
 
@@ -330,6 +337,8 @@
     {isReport}
     {isRunning}
     {isUpdateMode}
+    {approvalEnabled}
+    {approvalMessage}
     {filter}
     {canApprove}
     onFilterChange={(f) => filter = f}

@@ -181,6 +181,17 @@ export const ReportApiResponseSchema = z.object({
 
 export type ReportApiResponse = z.infer<typeof ReportApiResponseSchema>
 
+export const ClientBootstrapDataSchema = z.object({
+  report: ReportApiResponseSchema.extend({
+    isUpdateMode: z.boolean(),
+  }),
+  liveUpdates: z.boolean(),
+  approvalEnabled: z.boolean(),
+  approvalMessage: z.string().optional(),
+})
+
+export type ClientBootstrapData = z.infer<typeof ClientBootstrapDataSchema>
+
 // View modes
 export const ImagesViewModeSchema = z.enum(['side-by-side', 'swap', 'slide', 'blend'])
 

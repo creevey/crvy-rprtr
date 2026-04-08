@@ -1,25 +1,19 @@
 import { mkdir, copyFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 
-import type { Reporter, FullConfig, Suite, TestCase, TestResult, TestStep, FullResult } from '@playwright/test/reporter'
+import type { Reporter, FullConfig, Suite, TestCase, TestResult, FullResult } from '@playwright/test/reporter'
 import pLimit from 'p-limit'
 
-const MAX_CONCURRENT_FILE_OPS = 5
+import { writeReportArtifact } from './report-artifact.ts'
+import { extractScreenshotNames } from './reporter-utils.ts'
 
-function extractScreenshotNames(steps: TestStep[]): string[] {
-  const names: string[] = []
-  for (const step of steps) {
-    const match = step.title.match(/toHaveScreenshot\((.+?)\)/)
-    if (match?.[1] !== undefined && match[1] !== '') names.push(match[1])
-    if (step.steps.length) names.push(...extractScreenshotNames(step.steps))
-  }
-  return names
-}
+const MAX_CONCURRENT_FILE_OPS = 5
 
 export interface CreeveyReporterOptions {
   serverUrl?: string
   screenshotDir?: string
   offlineReportPath?: string
+  reportHtmlPath?: string
 }
 
 interface AttachmentData {
@@ -35,14 +29,17 @@ export class CreeveyReporter implements Reporter {
   private queue: string[] = []
   private workerIndex: number
   private offlineReportPath: string
+  private reportHtmlPath: string
   private isOfflineMode = false
-  private offlineEvents: Array<{ type: string; data: unknown }> = []
+  private hadOfflineMode = false
+  private runEvents: Array<{ type: 'test-begin' | 'test-end' | 'run-end'; data: unknown }> = []
 
   constructor(options: CreeveyReporterOptions = {}) {
     this.serverUrl = options.serverUrl ?? 'ws://localhost:3000'
     this.screenshotDir = options.screenshotDir ?? './screenshots'
     this.workerIndex = parseInt(process.env.TEST_WORKER_INDEX ?? '0', 10) || 0
     this.offlineReportPath = options.offlineReportPath ?? `./creevey-offline-report-${this.workerIndex}.json`
+    this.reportHtmlPath = options.reportHtmlPath ?? './creevey-report.html'
   }
 
   async onBegin(config: FullConfig, suite: Suite): Promise<void> {
@@ -56,10 +53,7 @@ export class CreeveyReporter implements Reporter {
       this.ws = new WebSocket(this.serverUrl)
       this.ws.onopen = (): void => {
         console.log('[CreeveyReporter] Connected to Creevey server')
-        if (this.isOfflineMode) {
-          this.offlineEvents = []
-          this.isOfflineMode = false
-        }
+        this.isOfflineMode = false
         for (const msg of this.queue) this.ws!.send(msg)
         this.queue = []
       }
@@ -80,6 +74,7 @@ export class CreeveyReporter implements Reporter {
   private enableOfflineMode(): void {
     if (!this.isOfflineMode) {
       this.isOfflineMode = true
+      this.hadOfflineMode = true
       console.log('[CreeveyReporter] Offline mode enabled - events will be queued to file')
     }
   }
@@ -207,7 +202,7 @@ export class CreeveyReporter implements Reporter {
   }
 
   private async writeOfflineReport(): Promise<void> {
-    if (this.offlineEvents.length === 0) {
+    if (this.runEvents.length === 0) {
       console.log('[CreeveyReporter] No offline events to write')
       return
     }
@@ -217,7 +212,7 @@ export class CreeveyReporter implements Reporter {
         version: 1,
         generatedAt: new Date().toISOString(),
         workers: this.workerIndex + 1,
-        events: this.offlineEvents.map((e) => ({
+        events: this.runEvents.map((e) => ({
           ...e,
           timestamp: Date.now(),
           workerIndex: this.workerIndex,
@@ -231,6 +226,19 @@ export class CreeveyReporter implements Reporter {
     }
   }
 
+  private async writeStaticArtifact(): Promise<void> {
+    try {
+      await writeReportArtifact({
+        events: this.runEvents,
+        screenshotDir: this.screenshotDir,
+        reportHtmlPath: this.reportHtmlPath,
+      })
+      console.log(`[CreeveyReporter] Wrote report artifact: ${this.reportHtmlPath}`)
+    } catch (e) {
+      console.error('[CreeveyReporter] Failed to write report artifact:', e)
+    }
+  }
+
   async onEnd(result: FullResult): Promise<void> {
     this.send({
       type: 'run-end',
@@ -239,7 +247,9 @@ export class CreeveyReporter implements Reporter {
       },
     })
 
-    if (this.isOfflineMode) {
+    await this.writeStaticArtifact()
+
+    if (this.hadOfflineMode) {
       await this.writeOfflineReport()
     }
 
@@ -260,14 +270,21 @@ export class CreeveyReporter implements Reporter {
   }
 
   private send(msg: object): void {
+    const msgObj = msg as { type?: string; data?: unknown }
+    if (msgObj.type === 'test-begin' || msgObj.type === 'test-end' || msgObj.type === 'run-end') {
+      this.runEvents.push({
+        type: msgObj.type,
+        data: msgObj.data,
+      })
+    }
+
     const payload = JSON.stringify(msg)
-    if (this.isOfflineMode) {
-      const msgObj = msg as { type?: string; data?: unknown }
-      this.offlineEvents.push({ type: msgObj.type ?? 'unknown', data: msgObj.data })
-    } else if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(payload)
-    } else {
-      this.queue.push(payload)
+    if (!this.isOfflineMode) {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(payload)
+      } else {
+        this.queue.push(payload)
+      }
     }
   }
 }

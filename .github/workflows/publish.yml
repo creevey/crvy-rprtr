@@ -1,0 +1,126 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js for npm publish
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install git-cliff
+        run: bun add -g git-cliff
+
+      - name: Run checks
+        run: bun run check
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Calculate next version
+        id: version
+        env:
+          BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+        run: |
+          CURRENT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          CURRENT=$(echo "$CURRENT_TAG" | sed 's/^v//')
+          case "$BUMP_TYPE" in
+            major)
+              NEXT=$(echo "$CURRENT" | awk -F. '{print $1+1".0.0"}')
+              ;;
+            minor)
+              NEXT=$(echo "$CURRENT" | awk -F. '{print $1"."$2+1".0"}')
+              ;;
+            patch)
+              NEXT=$(echo "$CURRENT" | awk -F. '{print $1"."$2"."$3+1}')
+              ;;
+          esac
+          echo "next=v$NEXT" >> "$GITHUB_OUTPUT"
+          echo "Calculated next version: v$NEXT"
+
+      - name: Update package.json version
+        run: |
+          VERSION_NUM="${{ steps.version.outputs.next }}"
+          VERSION_NUM="${VERSION_NUM#v}"
+          VERSION_NUM="$VERSION_NUM" bun --eval '
+            const file = Bun.file("package.json");
+            const pkg = await file.json();
+            pkg.version = process.env.VERSION_NUM;
+            await Bun.write("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+          '
+
+      - name: Generate CHANGELOG.md
+        run: git-cliff --unreleased --tag "${{ steps.version.outputs.next }}" --prepend CHANGELOG.md
+
+      - name: Commit and tag release
+        run: |
+          git add package.json CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore(release): bump to ${{ steps.version.outputs.next }}"
+            git push
+            git tag "${{ steps.version.outputs.next }}"
+            git push origin "${{ steps.version.outputs.next }}"
+          fi
+
+      - name: Build package
+        run: bun run build
+
+      - name: Publish package to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Extract release notes
+        run: |
+          VERSION="${{ steps.version.outputs.next }}"
+          VERSION_NUM=$(echo "$VERSION" | sed 's/^v//')
+
+          awk -v ver="## [$VERSION_NUM]" '
+            index($0, ver) { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.next }}
+          name: Release ${{ steps.version.outputs.next }}
+          body_path: RELEASE_NOTES.md
+          generate_release_notes: false

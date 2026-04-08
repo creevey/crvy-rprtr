@@ -1,4 +1,5 @@
-export { attachmentsToImages, broadcastToBrowsers, mapStatus } from './utils.ts'
+export { broadcastToBrowsers } from './utils.ts'
+export { attachmentsToImages, mapStatus } from '../report-utils.ts'
 export {
   handleTestBegin,
   handleTestEnd,

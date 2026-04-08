@@ -8,6 +8,7 @@ import type { OfflineReport } from '../src/schemas'
 
 const TEST_WORKER_INDEX = '99'
 const TEST_REPORT_PATH = `./creevey-offline-report-${TEST_WORKER_INDEX}.json`
+const TEST_ARTIFACT_PATH = './test-creevey-report.html'
 
 function assertValidOfflineReport(value: unknown): OfflineReport {
   const parsed = safeParse(OfflineReportSchema, value)
@@ -26,6 +27,9 @@ describe('Offline Mode', () => {
       if (existsSync(TEST_REPORT_PATH)) {
         unlinkSync(TEST_REPORT_PATH)
       }
+      if (existsSync(TEST_ARTIFACT_PATH)) {
+        unlinkSync(TEST_ARTIFACT_PATH)
+      }
     } catch {}
   })
 
@@ -33,6 +37,9 @@ describe('Offline Mode', () => {
     try {
       if (existsSync(TEST_REPORT_PATH)) {
         await rm(TEST_REPORT_PATH)
+      }
+      if (existsSync(TEST_ARTIFACT_PATH)) {
+        await rm(TEST_ARTIFACT_PATH)
       }
     } catch {}
     process.env.TEST_WORKER_INDEX = originalWorkerIndex
@@ -44,6 +51,7 @@ describe('Offline Mode', () => {
     const reporter = new CreeveyReporter({
       serverUrl: 'ws://localhost:9999',
       screenshotDir: './test-offline-screenshots',
+      reportHtmlPath: TEST_ARTIFACT_PATH,
     })
 
     // Cast to access private methods for testing
@@ -110,6 +118,7 @@ describe('Offline Mode', () => {
     const reporter = new CreeveyReporter({
       serverUrl: 'ws://localhost:9999',
       screenshotDir: './test-offline-screenshots',
+      reportHtmlPath: TEST_ARTIFACT_PATH,
     })
 
     type TestReporter = {

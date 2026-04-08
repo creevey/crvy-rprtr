@@ -8,10 +8,11 @@ When the Creevey server is unavailable (e.g., CI matrix builds), the Playwright 
 2. If connection fails, reporter enters **offline mode**
 3. Events are queued locally during test execution
 4. On `onEnd`, reporter writes `creevey-offline-report-{workerIndex}.json`
+5. On `onEnd`, reporter also writes `creevey-report.html` for direct browser viewing
 
 ## Server-Side Loading
 
-When the Creevey server starts, it automatically scans for and loads any offline reports, merging them into the active `reportData`.
+When the Creevey server starts, it automatically scans the offline report directory for `creevey-offline-report*.json` files and merges them into the active `reportData`.
 
 ## CI Integration
 
@@ -31,14 +32,25 @@ reporter: [
 
 Upload these files as CI artifacts:
 
+- `creevey-report.html` - browser-openable static report
 - `screenshots/` - all screenshots
 - `creevey-offline-report-*.json` - event data for each worker
+
+To reopen those artifacts with the full approval UI:
+
+```bash
+bunx creevey-reporter \
+  --report-path ./artifacts/report.json \
+  --screenshot-dir ./artifacts/screenshots \
+  --offline-report-dir ./artifacts
+```
 
 ## Limitations
 
 - Offline events are only written to file when `onEnd()` is called
 - If WebSocket reconnects after being offline, queued events stay in memory and are NOT sent to the server
 - For matrix CI, each worker writes its own offline report file
+- The static `creevey-report.html` artifact is read-only and does not apply approvals by itself
 
 ## Environment Variables
 

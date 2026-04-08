@@ -66,27 +66,29 @@ export interface WebSocketMessage {
 
 export interface TestBeginMessage {
   type: 'test-begin'
-  data: { id: string; title: string; location: Location }
+  data: {
+    id: string
+    title: string
+    titlePath: string[]
+    browser: string
+    location: Location
+  }
 }
 
 export interface TestEndMessage {
   type: 'test-end'
-  data: PlaywrightTestResult
+  data: {
+    id: string
+    status: 'passed' | 'failed' | 'skipped'
+    attachments: Attachment[]
+    error?: string
+    duration?: number
+  }
 }
 
 export interface RunEndMessage {
   type: 'run-end'
-  data: { status: 'passed' | 'failed' | 'skipped'; count: number }
-}
-
-export interface PlaywrightTestResult {
-  id: string
-  title: string
-  location: Location
-  status: 'passed' | 'failed' | 'skipped'
-  attachments: Attachment[]
-  error?: string
-  duration?: number
+  data: { status: 'passed' | 'failed' | 'skipped' }
 }
 
 export interface CreeveyStatus {
@@ -113,6 +115,16 @@ export interface OfflineReport {
   generatedAt: string
   workers: number
   events: OfflineEvent[]
+}
+
+export interface ClientBootstrapData {
+  report: {
+    tests: Record<string, TestData>
+    isUpdateMode: boolean
+  }
+  liveUpdates: boolean
+  approvalEnabled: boolean
+  approvalMessage?: string
 }
 
 export function isDefined<T>(value: T | null | undefined): value is T {

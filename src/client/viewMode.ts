@@ -1,7 +1,7 @@
 import { ImagesViewModeSchema, safeParse } from '../schemas'
 import type { ImagesViewMode } from '../schemas'
 
-export const VIEW_MODE_KEY = 'Creevey_view_mode'
+export const VIEW_MODE_KEY = 'crvy-rprtr-view-mode'
 
 export const viewModes: ImagesViewMode[] = ['side-by-side', 'swap', 'slide', 'blend']
 

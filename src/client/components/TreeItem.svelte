@@ -1,16 +1,16 @@
 <script lang="ts">
-  import { isTest, isDefined, type CreeveySuite, type CreeveyTest } from '../../types';
+  import { isTest, isDefined, type CrvyRprtrSuite, type CrvyRprtrTest } from '../../types';
   import { getTestPath, hasScreenshots } from '../helpers';
   import { cn, statusDotClass } from '../cn';
   import TreeItem from './TreeItem.svelte';
 
   interface Props {
-    item: CreeveySuite | CreeveyTest;
+    item: CrvyRprtrSuite | CrvyRprtrTest;
     level: number;
     selectedId?: string;
     focusedPath: string[] | null;
     isUpdateMode: boolean;
-    onSelect: (test: CreeveyTest) => void;
+    onSelect: (test: CrvyRprtrTest) => void;
     onOpen: (path: string[], opened: boolean) => void;
     onToggle: (path: string[], checked: boolean) => void;
   }
@@ -18,8 +18,8 @@
   let { item, level, selectedId, focusedPath, isUpdateMode, onSelect, onOpen, onToggle }: Props = $props();
 
   let itemIsTest = $derived(isTest(item));
-  let suiteItem = $derived(item as CreeveySuite);
-  let testItem = $derived(item as CreeveyTest);
+  let suiteItem = $derived(item as CrvyRprtrSuite);
+  let testItem = $derived(item as CrvyRprtrTest);
   let path = $derived(itemIsTest ? getTestPath(testItem) : suiteItem.path);
   let hasChildren = $derived(!itemIsTest && Object.keys(suiteItem.children).length > 0);
   let isOpen = $derived(!itemIsTest && suiteItem.opened);
@@ -71,9 +71,9 @@
 </div>
 
 {#if isOpen}
-  {#each Object.values(suiteItem.children).filter(isDefined).filter((c) => hasScreenshots(c as CreeveySuite | CreeveyTest)) as child}
+  {#each Object.values(suiteItem.children).filter(isDefined).filter((c) => hasScreenshots(c as CrvyRprtrSuite | CrvyRprtrTest)) as child}
     <TreeItem
-      item={child as CreeveySuite | CreeveyTest}
+      item={child as CrvyRprtrSuite | CrvyRprtrTest}
       level={level + 1}
       {selectedId}
       {focusedPath}

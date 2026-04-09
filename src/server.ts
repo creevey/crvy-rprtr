@@ -224,7 +224,7 @@ function runServer(port: number, staticDir: string): void {
     },
   })
 
-  console.log(`Creevey Reporter started at http://localhost:${port}`)
+  console.log(`Crvy Rprtr started at http://localhost:${port}`)
 }
 
 async function initData(options: ServerOptions): Promise<{ port: number; staticDir: string }> {

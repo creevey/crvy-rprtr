@@ -7,8 +7,8 @@ import { OfflineReportSchema, safeParse } from '../src/schemas'
 import type { OfflineReport } from '../src/schemas'
 
 const TEST_WORKER_INDEX = '99'
-const TEST_REPORT_PATH = `./creevey-offline-report-${TEST_WORKER_INDEX}.json`
-const TEST_ARTIFACT_PATH = './test-creevey-report.html'
+const TEST_REPORT_PATH = `./crvy-rprtr-offline-report-${TEST_WORKER_INDEX}.json`
+const TEST_ARTIFACT_PATH = './test-crvy-rprtr.html'
 
 function assertValidOfflineReport(value: unknown): OfflineReport {
   const parsed = safeParse(OfflineReportSchema, value)
@@ -46,9 +46,9 @@ describe('Offline Mode', () => {
   })
 
   test('reporter enters offline mode when WebSocket server unavailable', async () => {
-    const { CreeveyReporter } = await import('../src/reporter')
+    const { CrvyRprtr } = await import('../src/reporter')
 
-    const reporter = new CreeveyReporter({
+    const reporter = new CrvyRprtr({
       serverUrl: 'ws://localhost:9999',
       screenshotDir: './test-offline-screenshots',
       reportHtmlPath: TEST_ARTIFACT_PATH,
@@ -113,9 +113,9 @@ describe('Offline Mode', () => {
   })
 
   test('offline report contains run-end event even with no other events', async () => {
-    const { CreeveyReporter } = await import('../src/reporter')
+    const { CrvyRprtr } = await import('../src/reporter')
 
-    const reporter = new CreeveyReporter({
+    const reporter = new CrvyRprtr({
       serverUrl: 'ws://localhost:9999',
       screenshotDir: './test-offline-screenshots',
       reportHtmlPath: TEST_ARTIFACT_PATH,
@@ -146,7 +146,7 @@ describe('Offline Mode', () => {
   })
 
   test('reporter enters offline mode when WebSocket is unavailable in the runtime', async () => {
-    const { CreeveyReporter } = await import('../src/reporter')
+    const { CrvyRprtr } = await import('../src/reporter')
     const originalWebSocketDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'WebSocket')
     Object.defineProperty(globalThis, 'WebSocket', {
       value: undefined,
@@ -155,7 +155,7 @@ describe('Offline Mode', () => {
     })
 
     try {
-      const reporter = new CreeveyReporter({
+      const reporter = new CrvyRprtr({
         serverUrl: 'ws://localhost:3000',
         screenshotDir: './test-offline-screenshots',
         reportHtmlPath: TEST_ARTIFACT_PATH,

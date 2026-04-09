@@ -1,4 +1,4 @@
-import { type CreeveySuite, type CreeveyTest, type TestStatus, isTest, getChildrenArray } from '../../types'
+import { type CrvyRprtrSuite, type CrvyRprtrTest, type TestStatus, isTest, getChildrenArray } from '../../types'
 
 export const testStatuses: TestStatus[] = ['unknown', 'pending', 'running', 'failed', 'approved', 'success', 'retrying']
 
@@ -19,7 +19,7 @@ export function calcStatus(oldStatus?: TestStatus, newStatus?: TestStatus): Test
   return newStatus !== undefined && statusUpdatesMap.get(oldStatus)?.test(newStatus) === true ? newStatus : oldStatus
 }
 
-export function countTestsStatus(suite: CreeveySuite): {
+export function countTestsStatus(suite: CrvyRprtrSuite): {
   successCount: number
   failedCount: number
   pendingCount: number
@@ -29,7 +29,7 @@ export function countTestsStatus(suite: CreeveySuite): {
   let failedCount = 0
   let approvedCount = 0
   let pendingCount = 0
-  const cases: (CreeveySuite | CreeveyTest)[] = getChildrenArray(suite.children)
+  const cases: (CrvyRprtrSuite | CrvyRprtrTest)[] = getChildrenArray(suite.children)
   let suiteOrTest
   while ((suiteOrTest = cases.pop())) {
     if (isTest(suiteOrTest)) {
@@ -45,14 +45,14 @@ export function countTestsStatus(suite: CreeveySuite): {
   return { approvedCount, successCount, failedCount, pendingCount }
 }
 
-export function getFailedTests(suite: CreeveySuite): CreeveyTest[] {
+export function getFailedTests(suite: CrvyRprtrSuite): CrvyRprtrTest[] {
   return getChildrenArray(suite.children).flatMap((suiteOrTest) => {
     if (isTest(suiteOrTest)) return suiteOrTest.status === 'failed' ? suiteOrTest : []
     return getFailedTests(suiteOrTest)
   })
 }
 
-export function getCheckedTests(suite: CreeveySuite): CreeveyTest[] {
+export function getCheckedTests(suite: CrvyRprtrSuite): CrvyRprtrTest[] {
   return getChildrenArray(suite.children).flatMap((suiteOrTest) => {
     if (isTest(suiteOrTest)) return suiteOrTest.checked ? suiteOrTest : []
     if (!suiteOrTest.checked && !suiteOrTest.indeterminate) return []
@@ -60,7 +60,7 @@ export function getCheckedTests(suite: CreeveySuite): CreeveyTest[] {
   })
 }
 
-export function hasScreenshots(item: CreeveySuite | CreeveyTest): boolean {
+export function hasScreenshots(item: CrvyRprtrSuite | CrvyRprtrTest): boolean {
   if (isTest(item)) {
     return item.results?.some((r) => r.images !== undefined && Object.keys(r.images).length > 0) ?? false
   }

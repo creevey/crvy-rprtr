@@ -1,11 +1,11 @@
 {
-  "name": "@creevey/playwright-reporter",
+  "name": "@crvy/rprtr",
   "version": "0.0.1",
   "description": "Playwright reporter with visual regression UI for comparing and approving screenshot tests",
   "keywords": [
-    "creevey",
+    "crvy",
     "playwright",
-    "reporter",
+    "rprtr",
     "screenshot",
     "testing",
     "visual-regression"
@@ -20,7 +20,7 @@
     "url": "git+https://github.com/creevey/creevey-reporter.git"
   },
   "bin": {
-    "creevey-reporter": "./dist/cli.js"
+    "crvy-rprtr": "./dist/cli.js"
   },
   "files": [
     "dist/",

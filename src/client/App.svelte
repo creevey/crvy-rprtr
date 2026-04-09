@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CreeveySuite, CreeveyTest, ImagesViewMode } from '../types';
+  import type { CrvyRprtrSuite, CrvyRprtrTest, ImagesViewMode } from '../types';
   import { isTest, isDefined } from '../types';
   import {
     openSuite,
@@ -18,7 +18,7 @@
     recalcAllSuiteStatuses,
     treeifyTests,
     mergeTreeState,
-    type CreeveyViewFilter,
+    type CrvyRprtrViewFilter,
   } from './helpers';  
   import type { TestData } from '../types';
   import { getViewMode } from './viewMode';
@@ -27,7 +27,7 @@
   import Toggle from './components/Toggle.svelte';
 
   interface Props {
-    initialTests: CreeveySuite;
+    initialTests: CrvyRprtrSuite;
     isReport: boolean;
     isUpdateMode: boolean;
     liveUpdates: boolean;
@@ -43,10 +43,10 @@
   let tests = $state(initialTests);
   let isRunning = $state(false);
   let openedTestPath = $state<string[]>([]);
-  let filter = $state<CreeveyViewFilter>({ status: null, subStrings: [] });
+  let filter = $state<CrvyRprtrViewFilter>({ status: null, subStrings: [] });
   let viewMode = $state<ImagesViewMode>(getViewMode());
   let focusedPath = $state<string[] | null>([]);
-  let isDark = $state(localStorage.getItem('creevey_theme') !== 'light');
+  let isDark = $state(localStorage.getItem('crvy-rprtr-theme') !== 'light');
 
   let openedTest = $derived(getTestByPath(tests, openedTestPath));
   let failedTests = $derived(getFailedTests(tests).filter(hasScreenshots));
@@ -81,7 +81,7 @@
   });
 
   $effect(() => {
-    localStorage.setItem('creevey_theme', isDark ? 'dark' : 'light');
+    localStorage.setItem('crvy-rprtr-theme', isDark ? 'dark' : 'light');
     document.documentElement.classList.toggle('light', !isDark);
     document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
   });
@@ -186,7 +186,7 @@
     });
   }
 
-  function handleOpenTest(test: CreeveyTest): void {
+  function handleOpenTest(test: CrvyRprtrTest): void {
     const testPath = getTestPath(test);
     setSearchParams(testPath);
     focusedPath = testPath;
@@ -248,7 +248,7 @@
     handleGoToNextFailed();
   }
 
-  function getAllTests(suite: CreeveySuite): CreeveyTest[] {
+  function getAllTests(suite: CrvyRprtrSuite): CrvyRprtrTest[] {
     return Object.values(suite.children)
       .filter(isDefined)
       .flatMap((child) => (isTest(child) ? [child] : getAllTests(child)));

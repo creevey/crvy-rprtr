@@ -61,26 +61,26 @@ export const TestDataSchema = z.object({
 
 export type TestData = z.infer<typeof TestDataSchema>
 
-// Creevey test schema (extends TestData)
-export const CreeveyTestSchema = TestDataSchema.extend({
+// Crvy Rprtr test schema (extends TestData)
+export const CrvyRprtrTestSchema = TestDataSchema.extend({
   checked: z.boolean(),
 })
 
-export type CreeveyTest = z.infer<typeof CreeveyTestSchema>
+export type CrvyRprtrTest = z.infer<typeof CrvyRprtrTestSchema>
 
-// Creevey suite type (recursive)
-export interface CreeveySuite {
+// Crvy Rprtr suite type (recursive)
+export interface CrvyRprtrSuite {
   path: string[]
   skip: boolean
   status?: TestStatus
   opened: boolean
   checked: boolean
   indeterminate: boolean
-  children?: Partial<Record<string, CreeveySuite | CreeveyTest>>
+  children?: Partial<Record<string, CrvyRprtrSuite | CrvyRprtrTest>>
 }
 
-// Creevey suite schema (recursive) - explicitly typed to maintain type safety
-export const CreeveySuiteSchema: z.ZodType<CreeveySuite> = z.lazy(() =>
+// Crvy Rprtr suite schema (recursive) - explicitly typed to maintain type safety
+export const CrvyRprtrSuiteSchema: z.ZodType<CrvyRprtrSuite> = z.lazy(() =>
   z.object({
     path: z.array(z.string()),
     skip: z.boolean(),
@@ -89,8 +89,8 @@ export const CreeveySuiteSchema: z.ZodType<CreeveySuite> = z.lazy(() =>
     checked: z.boolean(),
     indeterminate: z.boolean(),
     // eslint-disable-next-line typescript/no-unsafe-type-assertion
-    children: z.record(z.string(), z.union([CreeveySuiteSchema, CreeveyTestSchema])).optional() as z.ZodType<
-      Partial<Record<string, CreeveySuite | CreeveyTest>>
+    children: z.record(z.string(), z.union([CrvyRprtrSuiteSchema, CrvyRprtrTestSchema])).optional() as z.ZodType<
+      Partial<Record<string, CrvyRprtrSuite | CrvyRprtrTest>>
     >,
   }),
 )

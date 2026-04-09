@@ -9,7 +9,7 @@ describe('Static asset routing', () => {
   let staticDir = ''
 
   beforeEach(async () => {
-    staticDir = await mkdtemp(join(tmpdir(), 'creevey-static-assets-'))
+    staticDir = await mkdtemp(join(tmpdir(), 'crvy-rprtr-static-assets-'))
     await Bun.write(join(staticDir, 'index.html'), '<!doctype html><title>ok</title>')
     await Bun.write(join(staticDir, 'index.js'), 'console.log("ok");')
   })

@@ -1,19 +1,26 @@
-import { type CreeveySuite, type CreeveyTest, type TestData, isTest, isDefined, getChildrenEntries } from '../../types'
+import {
+  type CrvyRprtrSuite,
+  type CrvyRprtrTest,
+  type TestData,
+  isTest,
+  isDefined,
+  getChildrenEntries,
+} from '../../types'
 import { isTestStatus, calcStatus } from './status'
 
 export function getTestPath(test: Pick<TestData, 'browser' | 'title' | 'titlePath'>): string[] {
   return [...test.titlePath, test.title, test.browser].filter(isDefined)
 }
 
-export function getSuiteByPath(suite: CreeveySuite, path: string[]): CreeveySuite | CreeveyTest | undefined {
+export function getSuiteByPath(suite: CrvyRprtrSuite, path: string[]): CrvyRprtrSuite | CrvyRprtrTest | undefined {
   return path.reduce(
-    (suiteOrTest: CreeveySuite | CreeveyTest | undefined, pathToken: string) =>
+    (suiteOrTest: CrvyRprtrSuite | CrvyRprtrTest | undefined, pathToken: string) =>
       isTest(suiteOrTest) ? suiteOrTest : suiteOrTest?.children?.[pathToken],
-    suite as CreeveySuite | CreeveyTest | undefined,
+    suite as CrvyRprtrSuite | CrvyRprtrTest | undefined,
   )
 }
 
-export function getTestByPath(suite: CreeveySuite, path: string[]): CreeveyTest | null {
+export function getTestByPath(suite: CrvyRprtrSuite, path: string[]): CrvyRprtrTest | null {
   const test = getSuiteByPath(suite, path) ?? suite
   return isTest(test) ? test : null
 }
@@ -61,8 +68,8 @@ export function parseFilterString(value: string): {
   return { status, subStrings }
 }
 
-export function treeifyTests(testsById: Record<string, TestData>): CreeveySuite {
-  const rootSuite: CreeveySuite = {
+export function treeifyTests(testsById: Record<string, TestData>): CrvyRprtrSuite {
+  const rootSuite: CrvyRprtrSuite = {
     path: [],
     skip: false,
     opened: true,
@@ -104,13 +111,13 @@ export function treeifyTests(testsById: Record<string, TestData>): CreeveySuite 
     lastSuite.children[browserName] = {
       ...test,
       checked: true,
-    } as CreeveyTest
+    } as CrvyRprtrTest
   })
 
   return rootSuite
 }
 
-export function mergeTreeState(target: CreeveySuite, source: CreeveySuite): void {
+export function mergeTreeState(target: CrvyRprtrSuite, source: CrvyRprtrSuite): void {
   target.opened = source.opened
   target.checked = source.checked
   target.indeterminate = source.indeterminate

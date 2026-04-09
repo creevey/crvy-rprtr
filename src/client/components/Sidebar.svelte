@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { isDefined, type CreeveySuite, type CreeveyTest, type TestStatus } from '../../types';
-  import { countTestsStatus, filterTests, hasScreenshots, parseFilterString, type CreeveyViewFilter } from '../helpers';
+  import { isDefined, type CrvyRprtrSuite, type CrvyRprtrTest, type TestStatus } from '../../types';
+  import { countTestsStatus, filterTests, hasScreenshots, parseFilterString, type CrvyRprtrViewFilter } from '../helpers';
   import { cn, statusDotClass } from '../cn';
   import TreeItem from './TreeItem.svelte';
 
   interface Props {
-    tests: CreeveySuite;
+    tests: CrvyRprtrSuite;
     selectedId?: string;
     focusedPath: string[] | null;
     isReport: boolean;
@@ -13,10 +13,10 @@
     isUpdateMode: boolean;
     approvalEnabled: boolean;
     approvalMessage?: string;
-    filter: CreeveyViewFilter;
+    filter: CrvyRprtrViewFilter;
     canApprove: boolean;
-    onFilterChange: (filter: CreeveyViewFilter) => void;
-    onSelect: (test: CreeveyTest) => void;
+    onFilterChange: (filter: CrvyRprtrViewFilter) => void;
+    onSelect: (test: CrvyRprtrTest) => void;
     onOpen: (path: string[], opened: boolean) => void;
     onToggle: (path: string[], checked: boolean) => void;
     onStart: () => void;
@@ -39,7 +39,7 @@
   let visibleChildren = $derived(
     Object.values(filteredTests.children)
       .filter(isDefined)
-      .filter((c) => hasScreenshots(c as CreeveySuite | CreeveyTest))
+      .filter((c) => hasScreenshots(c as CrvyRprtrSuite | CrvyRprtrTest))
   );
 
   function handleFilterInput(e: Event): void {
@@ -80,7 +80,7 @@
   <div class="p-4 border-b border-edge bg-surface-alt shrink-0">
     <div class="flex justify-between items-start">
       <div>
-        <h1 class="m-0 mb-2 text-base font-normal text-fg-bright">Creevey Reporter</h1>
+        <h1 class="m-0 mb-2 text-base font-normal text-fg-bright">Crvy Rprtr</h1>
         {#if isUpdateMode}
           <div class="text-xs mb-2 px-2 py-1 text-success bg-success/10 rounded-sm">
             Review and approve screenshots
@@ -150,7 +150,7 @@
   <div class="flex-1 overflow-y-auto overscroll-y-contain py-1" role="tree">
     {#each visibleChildren as child}
       <TreeItem
-        item={child as CreeveySuite | CreeveyTest}
+        item={child as CrvyRprtrSuite | CrvyRprtrTest}
         level={0}
         {selectedId}
         {focusedPath}

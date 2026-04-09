@@ -9,7 +9,7 @@ import { extractScreenshotNames } from './reporter-utils.ts'
 
 const MAX_CONCURRENT_FILE_OPS = 5
 
-export interface CreeveyReporterOptions {
+export interface CrvyRprtrOptions {
   serverUrl?: string
   screenshotDir?: string
   offlineReportPath?: string
@@ -22,7 +22,7 @@ interface AttachmentData {
   contentType: string
 }
 
-export class CreeveyReporter implements Reporter {
+export class CrvyRprtr implements Reporter {
   private ws: WebSocket | null = null
   private serverUrl: string
   private screenshotDir: string
@@ -34,16 +34,16 @@ export class CreeveyReporter implements Reporter {
   private hadOfflineMode = false
   private runEvents: Array<{ type: 'test-begin' | 'test-end' | 'run-end'; data: unknown }> = []
 
-  constructor(options: CreeveyReporterOptions = {}) {
+  constructor(options: CrvyRprtrOptions = {}) {
     this.serverUrl = options.serverUrl ?? 'ws://localhost:3000'
     this.screenshotDir = options.screenshotDir ?? './screenshots'
     this.workerIndex = parseInt(process.env.TEST_WORKER_INDEX ?? '0', 10) || 0
-    this.offlineReportPath = options.offlineReportPath ?? `./creevey-offline-report-${this.workerIndex}.json`
-    this.reportHtmlPath = options.reportHtmlPath ?? './creevey-report.html'
+    this.offlineReportPath = options.offlineReportPath ?? `./crvy-rprtr-offline-report-${this.workerIndex}.json`
+    this.reportHtmlPath = options.reportHtmlPath ?? './crvy-rprtr.html'
   }
 
   async onBegin(config: FullConfig, suite: Suite): Promise<void> {
-    console.log(`[CreeveyReporter] Starting run with ${suite.allTests().length} tests`)
+    console.log(`[CrvyRprtr] Starting run with ${suite.allTests().length} tests`)
     await mkdir(this.screenshotDir, { recursive: true })
     this.connect()
   }
@@ -51,7 +51,7 @@ export class CreeveyReporter implements Reporter {
   private connect(): void {
     const WebSocketConstructor = globalThis.WebSocket
     if (typeof WebSocketConstructor !== 'function') {
-      console.log('[CreeveyReporter] WebSocket unavailable in current runtime; offline mode enabled')
+      console.log('[CrvyRprtr] WebSocket unavailable in current runtime; offline mode enabled')
       this.enableOfflineMode()
       return
     }
@@ -59,21 +59,21 @@ export class CreeveyReporter implements Reporter {
     try {
       this.ws = new WebSocketConstructor(this.serverUrl)
       this.ws.onopen = (): void => {
-        console.log('[CreeveyReporter] Connected to Creevey server')
+        console.log('[CrvyRprtr] Connected to Crvy Rprtr server')
         this.isOfflineMode = false
         for (const msg of this.queue) this.ws!.send(msg)
         this.queue = []
       }
       this.ws.onerror = (error): void => {
-        console.error('[CreeveyReporter] WebSocket error:', error)
+        console.error('[CrvyRprtr] WebSocket error:', error)
         this.enableOfflineMode()
       }
       this.ws.onclose = (): void => {
-        console.log('[CreeveyReporter] Disconnected from Creevey server')
+        console.log('[CrvyRprtr] Disconnected from Crvy Rprtr server')
         this.enableOfflineMode()
       }
     } catch (e) {
-      console.error('[CreeveyReporter] Failed to connect:', e)
+      console.error('[CrvyRprtr] Failed to connect:', e)
       this.enableOfflineMode()
     }
   }
@@ -82,7 +82,7 @@ export class CreeveyReporter implements Reporter {
     if (!this.isOfflineMode) {
       this.isOfflineMode = true
       this.hadOfflineMode = true
-      console.log('[CreeveyReporter] Offline mode enabled - events will be queued to file')
+      console.log('[CrvyRprtr] Offline mode enabled - events will be queued to file')
     }
   }
 
@@ -153,7 +153,7 @@ export class CreeveyReporter implements Reporter {
             path: `${this.sanitizeId(test.id)}/${destName}`,
             contentType: 'image/png',
           })
-          console.log(`[CreeveyReporter] Attached baseline: ${snapshotPath}`)
+          console.log(`[CrvyRprtr] Attached baseline: ${snapshotPath}`)
         } catch {
           // baseline not found yet (first run), skip
         }
@@ -186,9 +186,9 @@ export class CreeveyReporter implements Reporter {
               contentType: attachment.contentType,
             }
             savedAttachments.push(attachmentData)
-            console.log(`[CreeveyReporter] Saved screenshot: ${destPath}`)
+            console.log(`[CrvyRprtr] Saved screenshot: ${destPath}`)
           } catch (e) {
-            console.error(`[CreeveyReporter] Failed to save screenshot: ${attachment.path}`, e)
+            console.error(`[CrvyRprtr] Failed to save screenshot: ${attachment.path}`, e)
             const fallbackData: AttachmentData = {
               name: attachment.name,
               path: attachment.path,
@@ -210,7 +210,7 @@ export class CreeveyReporter implements Reporter {
 
   private async writeOfflineReport(): Promise<void> {
     if (this.runEvents.length === 0) {
-      console.log('[CreeveyReporter] No offline events to write')
+      console.log('[CrvyRprtr] No offline events to write')
       return
     }
 
@@ -227,9 +227,9 @@ export class CreeveyReporter implements Reporter {
       }
 
       await writeFile(this.offlineReportPath, JSON.stringify(report, null, 2))
-      console.log(`[CreeveyReporter] Wrote offline report: ${this.offlineReportPath}`)
+      console.log(`[CrvyRprtr] Wrote offline report: ${this.offlineReportPath}`)
     } catch (e) {
-      console.error('[CreeveyReporter] Failed to write offline report:', e)
+      console.error('[CrvyRprtr] Failed to write offline report:', e)
     }
   }
 
@@ -240,9 +240,9 @@ export class CreeveyReporter implements Reporter {
         screenshotDir: this.screenshotDir,
         reportHtmlPath: this.reportHtmlPath,
       })
-      console.log(`[CreeveyReporter] Wrote report artifact: ${this.reportHtmlPath}`)
+      console.log(`[CrvyRprtr] Wrote report artifact: ${this.reportHtmlPath}`)
     } catch (e) {
-      console.error('[CreeveyReporter] Failed to write report artifact:', e)
+      console.error('[CrvyRprtr] Failed to write report artifact:', e)
     }
   }
 
@@ -296,4 +296,4 @@ export class CreeveyReporter implements Reporter {
   }
 }
 
-export default CreeveyReporter
+export default CrvyRprtr

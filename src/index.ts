@@ -3,10 +3,10 @@ import { mount } from 'svelte'
 import App from './client/App.svelte'
 import { treeifyTests } from './client/helpers'
 import { ClientBootstrapDataSchema, ReportApiResponseSchema, safeParse } from './schemas'
-import type { CreeveySuite } from './types'
+import type { CrvyRprtrSuite } from './types'
 
 interface InitialState {
-  tests: CreeveySuite
+  tests: CrvyRprtrSuite
   isReport: boolean
   isUpdateMode: boolean
   liveUpdates: boolean
@@ -15,7 +15,7 @@ interface InitialState {
 }
 
 function loadBootstrapData(): InitialState | null {
-  const bootstrapElement = document.getElementById('creevey-bootstrap')
+  const bootstrapElement = document.getElementById('crvy-rprtr-bootstrap')
   if (!(bootstrapElement instanceof HTMLScriptElement)) {
     return null
   }

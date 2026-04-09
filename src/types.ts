@@ -43,18 +43,18 @@ export interface TestData {
   location?: Location
 }
 
-export interface CreeveyTest extends TestData {
+export interface CrvyRprtrTest extends TestData {
   checked: boolean
 }
 
-export interface CreeveySuite {
+export interface CrvyRprtrSuite {
   path: string[]
   skip: boolean
   status?: TestStatus
   opened: boolean
   checked: boolean
   indeterminate: boolean
-  children?: Partial<Record<string, CreeveySuite | CreeveyTest>>
+  children?: Partial<Record<string, CrvyRprtrSuite | CrvyRprtrTest>>
 }
 
 export type ImagesViewMode = 'side-by-side' | 'swap' | 'slide' | 'blend'
@@ -91,14 +91,14 @@ export interface RunEndMessage {
   data: { status: 'passed' | 'failed' | 'skipped' }
 }
 
-export interface CreeveyStatus {
+export interface CrvyRprtrStatus {
   isRunning: boolean
   tests: Partial<Record<string, TestData>>
   browsers: string[]
   isUpdateMode: boolean
 }
 
-export interface CreeveyViewFilter {
+export interface CrvyRprtrViewFilter {
   status: TestStatus | null
   subStrings: string[]
 }
@@ -131,7 +131,7 @@ export function isDefined<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined
 }
 
-export function isTest(x: unknown): x is CreeveyTest {
+export function isTest(x: unknown): x is CrvyRprtrTest {
   if (x === null || typeof x !== 'object') return false
   const hasId = 'id' in x
   const hasTitlePath = 'titlePath' in x

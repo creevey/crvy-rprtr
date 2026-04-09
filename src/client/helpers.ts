@@ -30,4 +30,4 @@ export {
   removeTests,
 } from './helpers/suite'
 
-export type { CreeveyViewFilter, CreeveyTestsStatus } from './helpers/suite'
+export type { CrvyRprtrViewFilter, CrvyRprtrTestsStatus } from './helpers/suite'

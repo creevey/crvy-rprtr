@@ -22,8 +22,8 @@ test-results/
 
 # runtime output
 screenshots/
-creevey-report.html
-creevey-offline-report*.json
+crvy-rprtr.html
+crvy-rprtr-offline-report*.json
 
 # BUT: DO NOT ignore baseline snapshots - they're stored in LFS
 !tests/**/*.spec.ts-snapshots/

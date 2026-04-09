@@ -11,13 +11,13 @@ const TINY_PNG = Buffer.from(
 )
 
 test('opens the generated report artifact directly from disk', async ({ page }) => {
-  const { CreeveyReporter } = await import('../src/reporter')
-  const tempDir = await mkdtemp(join(tmpdir(), 'creevey-report-artifact-browser-'))
+  const { CrvyRprtr } = await import('../src/reporter')
+  const tempDir = await mkdtemp(join(tmpdir(), 'crvy-rprtr-report-artifact-browser-'))
 
   try {
     const screenshotDir = join(tempDir, 'screenshots')
-    const reportHtmlPath = join(tempDir, 'creevey-report.html')
-    const offlineReportPath = join(tempDir, 'creevey-offline-report-0.json')
+    const reportHtmlPath = join(tempDir, 'crvy-rprtr.html')
+    const offlineReportPath = join(tempDir, 'crvy-rprtr-offline-report-0.json')
     const actualPath = join(tempDir, 'actual.png')
     const expectedPath = join(tempDir, 'expected.png')
     const diffPath = join(tempDir, 'diff.png')
@@ -28,7 +28,7 @@ test('opens the generated report artifact directly from disk', async ({ page }) 
       writeFile(diffPath, TINY_PNG),
     ])
 
-    const reporter = new CreeveyReporter({
+    const reporter = new CrvyRprtr({
       serverUrl: 'ws://localhost:9999',
       screenshotDir,
       offlineReportPath,

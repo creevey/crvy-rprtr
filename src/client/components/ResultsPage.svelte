@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CreeveyTest, ImagesViewMode } from '../../types';
+  import type { CrvyRprtrTest, ImagesViewMode } from '../../types';
   import { viewModes, VIEW_MODE_KEY } from '../viewMode';
   import { cn } from '../cn';
   import SlideView from './SlideView.svelte';
@@ -8,7 +8,7 @@
   import BlendView from './BlendView.svelte';
 
   interface Props {
-    test: CreeveyTest;
+    test: CrvyRprtrTest;
     retry: number;
     imageName: string;
     viewMode: ImagesViewMode;

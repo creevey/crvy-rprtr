@@ -13,7 +13,7 @@ describe('Report artifact generation', () => {
   let tempDir = ''
 
   beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), 'creevey-report-artifact-'))
+    tempDir = await mkdtemp(join(tmpdir(), 'crvy-rprtr-report-artifact-'))
   })
 
   afterEach(async () => {
@@ -23,11 +23,11 @@ describe('Report artifact generation', () => {
   })
 
   test('reporter writes a browser-openable static artifact with relative asset paths', async () => {
-    const { CreeveyReporter } = await import('../src/reporter')
+    const { CrvyRprtr } = await import('../src/reporter')
 
     const screenshotDir = join(tempDir, 'screenshots')
-    const reportHtmlPath = join(tempDir, 'creevey-report.html')
-    const offlineReportPath = join(tempDir, 'creevey-offline-report-0.json')
+    const reportHtmlPath = join(tempDir, 'crvy-rprtr.html')
+    const offlineReportPath = join(tempDir, 'crvy-rprtr-offline-report-0.json')
     const actualPath = join(tempDir, 'actual.png')
     const expectedPath = join(tempDir, 'expected.png')
     const diffPath = join(tempDir, 'diff.png')
@@ -38,7 +38,7 @@ describe('Report artifact generation', () => {
       writeFile(diffPath, TINY_PNG),
     ])
 
-    const reporter = new CreeveyReporter({
+    const reporter = new CrvyRprtr({
       serverUrl: 'ws://localhost:9999',
       screenshotDir,
       offlineReportPath,

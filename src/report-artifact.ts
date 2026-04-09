@@ -6,10 +6,10 @@ import { applyTestBeginEvent, applyTestEndEvent, createMutableReportState, final
 import { ClientBootstrapDataSchema, TestBeginDataSchema, TestEndDataSchema, safeParse } from './schemas.ts'
 import type { ClientBootstrapData, OfflineEvent } from './types.ts'
 
-const DEFAULT_REPORT_HTML_PATH = './creevey-report.html'
+const DEFAULT_REPORT_HTML_PATH = './crvy-rprtr.html'
 
 export const STATIC_ARTIFACT_APPROVAL_MESSAGE =
-  'This artifact is read-only. Open it with the Creevey reporter server to approve screenshots.'
+  'This artifact is read-only. Open it with the Crvy Rprtr server to approve screenshots.'
 
 function toBrowserPath(pathValue: string): string {
   const normalized = pathValue.split(sep).join('/')
@@ -55,7 +55,7 @@ function renderArtifactHtml(
     () => `<style>${escapeInlineStyle(stylesheet)}</style>`,
   )
 
-  const bootstrapScript = `<script id="creevey-bootstrap" type="application/json">${serializeBootstrapData(bootstrapData)}</script>`
+  const bootstrapScript = `<script id="crvy-rprtr-bootstrap" type="application/json">${serializeBootstrapData(bootstrapData)}</script>`
 
   return withStylesheet.replace(
     scriptPlaceholder,

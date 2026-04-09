@@ -1,9 +1,8 @@
-import type { ServerWebSocket } from 'bun'
-
 import { applyTestBeginEvent, applyTestEndEvent, finalizeRunEvent } from '../report-state.ts'
 import type { TestBeginData, TestEndData } from '../schemas.ts'
 import type { TestData, WebSocketMessage } from '../types.ts'
 import { broadcastToBrowsers } from './utils.ts'
+import type { RuntimeWebSocket } from './ws.ts'
 
 export interface HandlerContext {
   reportData: {
@@ -13,7 +12,7 @@ export interface HandlerContext {
     isUpdateMode: boolean
     screenshotDir: string
   }
-  wsClients: Set<ServerWebSocket>
+  wsClients: Set<RuntimeWebSocket>
   currentRunIds: Set<string>
   saveReport: () => Promise<void>
 }

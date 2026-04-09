@@ -11,13 +11,13 @@ const TINY_PNG = Buffer.from(
 )
 
 test('opens the generated report artifact directly from disk', async ({ page }) => {
-  const { CrvyRprtr } = await import('../src/reporter')
+  const { CrvyRprtr } = await import('../../src/reporter')
   const tempDir = await mkdtemp(join(tmpdir(), 'crvy-rprtr-report-artifact-browser-'))
 
   try {
     const screenshotDir = join(tempDir, 'screenshots')
     const reportHtmlPath = join(tempDir, 'crvy-rprtr.html')
-    const offlineReportPath = join(tempDir, 'crvy-rprtr-offline-report-0.json')
+    const offlineReportPath = join(tempDir, 'crvy-rprtr-0.json')
     const actualPath = join(tempDir, 'actual.png')
     const expectedPath = join(tempDir, 'expected.png')
     const diffPath = join(tempDir, 'diff.png')

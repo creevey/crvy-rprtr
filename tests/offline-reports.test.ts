@@ -10,7 +10,7 @@ describe('Offline report loading', () => {
   let tempDir = ''
 
   beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), 'crvy-rprtr-offline-reports-'))
+    tempDir = await mkdtemp(join(tmpdir(), 'crvy-rprtr-tests-'))
   })
 
   afterEach(async () => {
@@ -21,18 +21,18 @@ describe('Offline report loading', () => {
 
   test('finds every offline report file in the configured directory', async () => {
     await Promise.all([
-      writeFile(join(tempDir, 'crvy-rprtr-offline-report-0.json'), '{}'),
-      writeFile(join(tempDir, 'crvy-rprtr-offline-report-1.json'), '{}'),
-      writeFile(join(tempDir, 'crvy-rprtr-offline-report.json'), '{}'),
+      writeFile(join(tempDir, 'crvy-rprtr-0.json'), '{}'),
+      writeFile(join(tempDir, 'crvy-rprtr-1.json'), '{}'),
+      writeFile(join(tempDir, 'crvy-rprtr.json'), '{}'),
       writeFile(join(tempDir, 'notes.json'), '{}'),
     ])
 
     const paths = await findOfflineReportPaths(tempDir)
 
     expect(paths.map((path) => basename(path)).sort()).toEqual([
-      'crvy-rprtr-offline-report-0.json',
-      'crvy-rprtr-offline-report-1.json',
-      'crvy-rprtr-offline-report.json',
+      'crvy-rprtr-0.json',
+      'crvy-rprtr-1.json',
+      'crvy-rprtr.json',
     ])
   })
 

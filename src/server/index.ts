@@ -8,4 +8,9 @@ export {
   handleSync,
   type HandlerContext,
 } from './handlers.ts'
-export { createRoutes, type RoutesContext } from './routes.ts'
+export {
+  handleHttpRequest,
+  isWebSocketUpgradeRequest,
+  LIVE_UPDATES_WEBSOCKET_PATH,
+  type RoutesContext,
+} from './routes.ts'

@@ -11,7 +11,7 @@ import {
 } from './schemas.ts'
 import type { TestData } from './types.ts'
 
-const OFFLINE_REPORT_FILE_PATTERN = /^crvy-rprtr-offline-report(?:-\d+)?\.json$/
+const OFFLINE_REPORT_FILE_PATTERN = /^crvy-rprtr(?:-\d+)?\.json$/
 
 export async function findOfflineReportPaths(searchDir: string): Promise<string[]> {
   try {

@@ -27,7 +27,7 @@ describe('Report artifact generation', () => {
 
     const screenshotDir = join(tempDir, 'screenshots')
     const reportHtmlPath = join(tempDir, 'crvy-rprtr.html')
-    const offlineReportPath = join(tempDir, 'crvy-rprtr-offline-report-0.json')
+    const offlineReportPath = join(tempDir, 'crvy-rprtr-0.json')
     const actualPath = join(tempDir, 'actual.png')
     const expectedPath = join(tempDir, 'expected.png')
     const diffPath = join(tempDir, 'diff.png')

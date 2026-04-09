@@ -7,12 +7,12 @@ When the Crvy Rprtr server is unavailable (e.g., CI matrix builds), the Playwrig
 1. Reporter attempts WebSocket connection to server
 2. If connection fails, reporter enters **offline mode**
 3. Events are queued locally during test execution
-4. On `onEnd`, reporter writes `crvy-rprtr-offline-report-{workerIndex}.json`
+4. On `onEnd`, reporter writes `crvy-rprtr-{index}.json`
 5. On `onEnd`, reporter also writes `crvy-rprtr.html` for direct browser viewing
 
 ## Server-Side Loading
 
-When the Crvy Rprtr server starts, it automatically scans the offline report directory for `crvy-rprtr-offline-report*.json` files and merges them into the active `reportData`.
+When the Crvy Rprtr server starts, it automatically scans the offline report directory for `crvy-rprtr-*.json` files and merges them into the active `reportData`.
 
 ## CI Integration
 
@@ -34,16 +34,25 @@ Upload these files as CI artifacts:
 
 - `crvy-rprtr.html` - browser-openable static report
 - `screenshots/` - all screenshots
-- `crvy-rprtr-offline-report-*.json` - event data for each worker
+- `crvy-rprtr-*.json` - event data for each worker
 
 To reopen those artifacts with the full approval UI:
 
 ```bash
-bunx crvy-rprtr \
-  --report-path ./artifacts/report.json \
-  --screenshot-dir ./artifacts/screenshots \
-  --offline-report-dir ./artifacts
+npx crvy-rprtr \
+  --report-path ./artifacts \
+  --screenshot-dir ./artifacts/screenshots
 ```
+
+Or with explicit file path:
+
+```bash
+npx crvy-rprtr \
+  --report-path ./artifacts/report.json \
+  --screenshot-dir ./artifacts/screenshots
+```
+
+`pnpm dlx`, `yarn dlx`, and `bunx` can run the same command as well.
 
 ## Limitations
 

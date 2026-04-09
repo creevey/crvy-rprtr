@@ -10,7 +10,7 @@ Playwright reporter with a visual regression UI for comparing and approving scre
 npm install --save-dev @crvy/rprtr
 ```
 
-> **Requires:** [Bun](https://bun.sh) runtime for the UI server, Playwright ≥1.40
+> **Requires:** Playwright ≥1.40, plus **Node 22+ or Bun** for the live UI server/CLI. You can install the package with npm, pnpm, yarn, or Bun.
 
 ## Setup
 
@@ -29,8 +29,10 @@ export default defineConfig({
 Start the UI server to view and approve screenshot diffs:
 
 ```bash
-bunx crvy-rprtr
+npx crvy-rprtr
 ```
+
+Other package-manager launchers work too: `pnpm dlx crvy-rprtr`, `yarn dlx crvy-rprtr`, and `bunx crvy-rprtr`.
 
 Open http://localhost:3000 in your browser.
 
@@ -43,38 +45,37 @@ Open `crvy-rprtr.html` directly from CI artifacts or your filesystem to review r
 To open downloaded CI artifacts with the full approval UI, point the CLI at the artifact directory:
 
 ```bash
-bunx crvy-rprtr ./artifacts
+npx crvy-rprtr ./artifacts
 ```
 
 ## Reporter Options
 
-| Option              | Type     | Default                                       | Description                                        |
-| ------------------- | -------- | --------------------------------------------- | -------------------------------------------------- |
-| `serverUrl`         | `string` | `"ws://localhost:3000"`                       | WebSocket URL of the Crvy Rprtr server             |
-| `screenshotDir`     | `string` | `"./screenshots"`                             | Directory for saving screenshot artifacts          |
-| `offlineReportPath` | `string` | `"./crvy-rprtr-offline-report-{worker}.json"` | Path for offline report when server is unavailable |
-| `reportHtmlPath`    | `string` | `"./crvy-rprtr.html"`                         | Path for the browser-openable static report HTML   |
+| Option              | Type     | Default                        | Description                                        |
+| ------------------- | -------- | ------------------------------ | -------------------------------------------------- |
+| `serverUrl`         | `string` | `"ws://localhost:3000"`        | WebSocket URL of the Crvy Rprtr server             |
+| `screenshotDir`     | `string` | `"./screenshots"`              | Directory for saving screenshot artifacts          |
+| `offlineReportPath` | `string` | `"./crvy-rprtr-{worker}.json"` | Path for offline report when server is unavailable |
+| `reportHtmlPath`    | `string` | `"./crvy-rprtr.html"`          | Path for the browser-openable static report HTML   |
 
 ## Server CLI Options
 
 ```bash
-bunx crvy-rprtr [artifact-dir] [options]
+npx crvy-rprtr [artifact-dir] [options]
 ```
 
 If `artifact-dir` is provided, the CLI treats it as the directory containing:
 
 - `report.json`
 - `screenshots/`
-- `crvy-rprtr-offline-report*.json`
+- `crvy-rprtr-*.json`
 
 Explicit flags override the paths derived from `artifact-dir`.
 
-| Option                 | Short | Default             | Description                                                   |
-| ---------------------- | ----- | ------------------- | ------------------------------------------------------------- |
-| `--port`               | `-p`  | `3000`              | Server port                                                   |
-| `--screenshot-dir`     | `-s`  | `./screenshots`     | Screenshot directory path                                     |
-| `--report-path`        | `-r`  | `./report.json`     | Report JSON file path                                         |
-| `--offline-report-dir` | —     | dirname(reportPath) | Directory scanned for `crvy-rprtr-offline-report*.json` files |
+| Option             | Short | Default         | Description                                                                               |
+| ------------------ | ----- | --------------- | ----------------------------------------------------------------------------------------- |
+| `--port`           | `-p`  | `3000`          | Server port                                                                               |
+| `--screenshot-dir` | `-s`  | `./screenshots` | Screenshot directory path                                                                 |
+| `--report-path`    | `-r`  | `./report.json` | Report JSON file path or directory containing `report.json` and `crvy-rprtr-*.json` files |
 
 ## How It Works
 
@@ -88,22 +89,31 @@ Explicit flags override the paths derived from `artifact-dir`.
 When the server isn't running during tests, the reporter automatically falls back to offline mode:
 
 - Test events are queued in memory
-- On test completion, events are written to `crvy-rprtr-offline-report-{workerIndex}.json`
+- On test completion, events are written to `crvy-rprtr-{index}.json`
 - On test completion, a self-contained `crvy-rprtr.html` is written for direct browser review
-- When the server starts, it loads and merges all `crvy-rprtr-offline-report*.json` files from the offline report directory
+- When the server starts, it loads and merges all `crvy-rprtr-*.json` files from the offline report directory
 
 ## Programmatic API
 
 ```ts
 import { startServer } from '@crvy/rprtr/server'
 
+// reportPath can be a directory (will use report.json inside)
 await startServer({
   port: 3000,
   screenshotDir: './screenshots',
-  reportPath: './report.json',
-  offlineReportDir: './artifacts',
+  reportPath: './artifacts',
+})
+
+// Or a specific file path
+await startServer({
+  port: 3000,
+  screenshotDir: './screenshots',
+  reportPath: './artifacts/report.json',
 })
 ```
+
+The programmatic server API works in both Node 22+ and Bun.
 
 ## Development
 

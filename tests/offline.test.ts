@@ -7,7 +7,7 @@ import { OfflineReportSchema, safeParse } from '../src/schemas'
 import type { OfflineReport } from '../src/schemas'
 
 const TEST_WORKER_INDEX = '99'
-const TEST_REPORT_PATH = `./crvy-rprtr-offline-report-${TEST_WORKER_INDEX}.json`
+const TEST_REPORT_PATH = `./crvy-rprtr-${TEST_WORKER_INDEX}.json`
 const TEST_ARTIFACT_PATH = './test-crvy-rprtr.html'
 
 function assertValidOfflineReport(value: unknown): OfflineReport {

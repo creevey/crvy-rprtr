@@ -38,7 +38,7 @@ export class CrvyRprtr implements Reporter {
     this.serverUrl = options.serverUrl ?? 'ws://localhost:3000'
     this.screenshotDir = options.screenshotDir ?? './screenshots'
     this.workerIndex = parseInt(process.env.TEST_WORKER_INDEX ?? '0', 10) || 0
-    this.offlineReportPath = options.offlineReportPath ?? `./crvy-rprtr-offline-report-${this.workerIndex}.json`
+    this.offlineReportPath = options.offlineReportPath ?? `./crvy-rprtr-${this.workerIndex}.json`
     this.reportHtmlPath = options.reportHtmlPath ?? './crvy-rprtr.html'
   }
 

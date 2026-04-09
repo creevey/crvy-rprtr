@@ -60,5 +60,6 @@
     "esbuild-svelte",
     "zod",
     "p-limit",
+    "ws",
   ],
 }

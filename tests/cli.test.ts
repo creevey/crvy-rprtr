@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { dirname, join } from 'path'
+import { join } from 'path'
 
 import { resolveCliOptions } from '../src/cli'
 
@@ -9,7 +9,6 @@ describe('resolveCliOptions', () => {
       port: 3000,
       screenshotDir: './screenshots',
       reportPath: './report.json',
-      offlineReportDir: dirname('./report.json'),
     })
   })
 
@@ -20,11 +19,10 @@ describe('resolveCliOptions', () => {
       port: 3000,
       screenshotDir: join(artifactDir, 'screenshots'),
       reportPath: join(artifactDir, 'report.json'),
-      offlineReportDir: dirname(join(artifactDir, 'report.json')),
     })
   })
 
-  test('lets an explicit report path drive the default offline report directory', () => {
+  test('lets explicit report path override positional artifact directory', () => {
     const artifactDir = './artifacts'
     const reportPath = './custom/report.json'
 
@@ -32,7 +30,6 @@ describe('resolveCliOptions', () => {
       port: 3000,
       screenshotDir: join(artifactDir, 'screenshots'),
       reportPath,
-      offlineReportDir: dirname(reportPath),
     })
   })
 
@@ -46,14 +43,11 @@ describe('resolveCliOptions', () => {
         './custom/report.json',
         '--screenshot-dir',
         './custom/screenshots',
-        '--offline-report-dir',
-        './custom/offline',
       ]),
     ).toEqual({
       port: 4100,
       screenshotDir: './custom/screenshots',
       reportPath: './custom/report.json',
-      offlineReportDir: './custom/offline',
     })
   })
 

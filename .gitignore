@@ -23,7 +23,7 @@ test-results/
 # runtime output
 screenshots/
 crvy-rprtr.html
-crvy-rprtr-offline-report*.json
+crvy-rprtr-*.json
 
 # BUT: DO NOT ignore baseline snapshots - they're stored in LFS
 !tests/**/*.spec.ts-snapshots/

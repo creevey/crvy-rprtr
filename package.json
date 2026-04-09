@@ -48,9 +48,9 @@
     "access": "public"
   },
   "scripts": {
-    "dev": "bun --watch build.ts & bun run --watch src/server.ts",
+    "dev": "bun --watch build.ts & bun run --watch src/cli.ts",
     "build": "bun build.ts",
-    "start": "bun src/server.ts",
+    "start": "bun src/cli.ts",
     "lint": "oxlint --config .oxlintrc.json .",
     "lint:fix": "oxlint --config .oxlintrc.json --fix .",
     "format": "oxfmt --write . --ignore-path=.oxfmtignore",
@@ -58,7 +58,7 @@
     "typecheck": "tsc --noEmit",
     "knip": "knip-bun --strict",
     "duplicates": "jscpd",
-    "test:bun": "bun run build && bun test tests/*.test.ts",
+    "test:bun": "bun run build && cd tests && bun test *.test.ts",
     "test:playwright": "bun run build && bunx playwright test",
     "test": "bun run test:bun && bun run test:playwright",
     "test:ui": "bun run build && bunx playwright test --ui",
@@ -72,12 +72,14 @@
   },
   "dependencies": {
     "p-limit": "^7.3.0",
+    "ws": "^8.18.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/bun": "latest",
+    "@types/ws": "^8.18.1",
     "esbuild": "^0.27.4",
     "esbuild-svelte": "^0.9.4",
     "jscpd": "^4.0.8",
@@ -94,6 +96,7 @@
     "@playwright/test": ">=1.40"
   },
   "engines": {
-    "bun": ">=1.0.0"
+    "bun": ">=1.0.0",
+    "node": ">=22"
   }
 }

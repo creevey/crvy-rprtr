@@ -2,6 +2,7 @@ import { join } from 'path'
 
 import { ApproveRequestBodySchema, safeParse } from '../schemas.ts'
 import type { TestData } from '../types.ts'
+import { copyFilePortable, respondWithFile } from './file-utils.ts'
 
 export interface RoutesContext {
   reportData: {
@@ -15,35 +16,36 @@ export interface RoutesContext {
   saveReport: () => Promise<void>
 }
 
-function handleRoot(
-  ctx: RoutesContext,
-  req: Request,
-  server: { upgrade: (req: Request) => boolean },
-): Response | undefined {
-  if (server.upgrade(req)) return
-  const html = Bun.file(join(ctx.staticDir, 'index.html'))
-  return new Response(html, { headers: { 'Content-Type': 'text/html' } })
+export const LIVE_UPDATES_WEBSOCKET_PATH = '/'
+
+export function isWebSocketUpgradeRequest(req: Request): boolean {
+  return (
+    new URL(req.url).pathname === LIVE_UPDATES_WEBSOCKET_PATH &&
+    req.headers.get('upgrade')?.toLowerCase() === 'websocket'
+  )
 }
 
-function handleAppCss(): Response {
-  const css = Bun.file('./src/client/app.css')
-  return new Response(css, { headers: { 'Content-Type': 'text/css' } })
+async function handleRoot(ctx: RoutesContext): Promise<Response> {
+  const html = await respondWithFile(join(ctx.staticDir, 'index.html'), 'text/html')
+  return html ?? new Response('Not Found', { status: 404 })
+}
+
+async function handleAppCss(): Promise<Response> {
+  const css = await respondWithFile('./src/client/app.css', 'text/css')
+  return css ?? new Response('Not Found', { status: 404 })
 }
 
 async function handleSrcFiles(req: Request): Promise<Response> {
   const path = new URL(req.url).pathname.slice('/src/'.length)
   const filePath = `./src/${path}`
-  const file = Bun.file(filePath)
-  if (await file.exists()) {
-    const contentType =
-      filePath.endsWith('.ts') || filePath.endsWith('.tsx')
-        ? 'application/javascript'
-        : filePath.endsWith('.css')
-          ? 'text/css'
-          : 'text/plain'
-    return new Response(file, { headers: { 'Content-Type': contentType } })
-  }
-  return new Response('Not Found', { status: 404 })
+  const contentType =
+    filePath.endsWith('.ts') || filePath.endsWith('.tsx')
+      ? 'application/javascript'
+      : filePath.endsWith('.css')
+        ? 'text/css'
+        : 'text/plain'
+  const file = await respondWithFile(filePath, contentType)
+  return file ?? new Response('Not Found', { status: 404 })
 }
 
 function handleApiReport(ctx: RoutesContext): Response {
@@ -76,7 +78,7 @@ async function handleApiApprove(ctx: RoutesContext, req: Request): Promise<Respo
         const actualPath = actualUrl.replace('/screenshots/', `${ctx.reportData.screenshotDir}/`)
         const snapshotPath = `${test.location.file}-snapshots/${image}-${test.browser}-${process.platform}.png`
         try {
-          await Bun.write(snapshotPath, Bun.file(actualPath))
+          await copyFilePortable(actualPath, snapshotPath)
           console.log(`  ✔ Updated baseline: ${snapshotPath}`)
         } catch (err: unknown) {
           const errorMsg = err instanceof Error ? err.message : String(err)
@@ -117,7 +119,7 @@ async function handleApiApproveAll(ctx: RoutesContext): Promise<Response> {
         const actualPath = actualUrl.replace('/screenshots/', `${ctx.reportData.screenshotDir}/`)
         const snapshotPath = `${test.location.file}-snapshots/${imageName}-${test.browser}-${process.platform}.png`
         baselineUpdates.push(
-          Bun.write(snapshotPath, Bun.file(actualPath))
+          copyFilePortable(actualPath, snapshotPath)
             .then(() => {
               console.log(`  ✔ Updated baseline: ${snapshotPath}`)
             })
@@ -140,55 +142,69 @@ async function handleApiApproveAll(ctx: RoutesContext): Promise<Response> {
 async function handleApiImages(req: Request): Promise<Response> {
   const path = new URL(req.url).pathname.slice('/api/images/'.length)
   const imagePath = `./images/${path}`
-  const file = Bun.file(imagePath)
-  if (await file.exists()) {
-    return new Response(file)
-  }
-  return Response.json({ error: 'Image not found' }, { status: 404 })
+  const file = await respondWithFile(imagePath)
+  return file ?? Response.json({ error: 'Image not found' }, { status: 404 })
 }
 
 async function handleScreenshots(ctx: RoutesContext, req: Request): Promise<Response> {
   const path = new URL(req.url).pathname.slice('/screenshots/'.length)
   const screenshotPath = `${ctx.reportData.screenshotDir}/${path}`
-  const file = Bun.file(screenshotPath)
-  if (await file.exists()) {
-    return new Response(file)
-  }
-  return Response.json({ error: 'Screenshot not found' }, { status: 404 })
+  const file = await respondWithFile(screenshotPath)
+  return file ?? Response.json({ error: 'Screenshot not found' }, { status: 404 })
 }
 
 async function handleDist(ctx: RoutesContext, req: Request): Promise<Response> {
   const path = new URL(req.url).pathname.slice('/dist/'.length)
   const filePath = join(ctx.staticDir, path)
-  const file = Bun.file(filePath)
-  if (await file.exists()) {
-    const contentType = filePath.endsWith('.css')
-      ? 'text/css'
-      : filePath.endsWith('.js')
-        ? 'application/javascript'
-        : filePath.endsWith('.svelte')
-          ? 'text/plain'
-          : 'application/octet-stream'
-    return new Response(file, { headers: { 'Content-Type': contentType } })
-  }
-  return new Response('Not Found', { status: 404 })
+  const contentType = filePath.endsWith('.css')
+    ? 'text/css'
+    : filePath.endsWith('.js')
+      ? 'application/javascript'
+      : filePath.endsWith('.svelte')
+        ? 'text/plain'
+        : 'application/octet-stream'
+  const file = await respondWithFile(filePath, contentType)
+  return file ?? new Response('Not Found', { status: 404 })
 }
 
-export function createRoutes(
-  ctx: RoutesContext,
-): Record<
-  string,
-  (req: Request, server?: { upgrade: (req: Request) => boolean }) => Response | Promise<Response> | undefined
-> {
-  return {
-    '/': (req, server) => handleRoot(ctx, req, server!),
-    '/src/client/app.css': () => handleAppCss(),
-    '/src/*': (req) => handleSrcFiles(req),
-    '/api/report': () => handleApiReport(ctx),
-    '/api/approve': (req) => handleApiApprove(ctx, req),
-    '/api/approve-all': () => handleApiApproveAll(ctx),
-    '/api/images/*': (req) => handleApiImages(req),
-    '/screenshots/*': (req) => handleScreenshots(ctx, req),
-    '/dist/*': (req) => handleDist(ctx, req),
+export function handleHttpRequest(ctx: RoutesContext, req: Request): Promise<Response> {
+  const pathname = new URL(req.url).pathname
+
+  if (pathname === '/') {
+    return handleRoot(ctx)
   }
+
+  if (pathname === '/src/client/app.css') {
+    return handleAppCss()
+  }
+
+  if (pathname.startsWith('/src/')) {
+    return handleSrcFiles(req)
+  }
+
+  if (pathname === '/api/report') {
+    return Promise.resolve(handleApiReport(ctx))
+  }
+
+  if (pathname === '/api/approve') {
+    return handleApiApprove(ctx, req)
+  }
+
+  if (pathname === '/api/approve-all') {
+    return handleApiApproveAll(ctx)
+  }
+
+  if (pathname.startsWith('/api/images/')) {
+    return handleApiImages(req)
+  }
+
+  if (pathname.startsWith('/screenshots/')) {
+    return handleScreenshots(ctx, req)
+  }
+
+  if (pathname.startsWith('/dist/')) {
+    return handleDist(ctx, req)
+  }
+
+  return Promise.resolve(new Response('Not Found', { status: 404 }))
 }

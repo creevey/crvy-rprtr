@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 
-const BASE = 'http://localhost:3001/tests/ui-controls.html'
+const BASE = 'http://localhost:3001/tests/e2e/ui-controls.html'
 
 const SECTIONS = [
   'view-mode-switcher',

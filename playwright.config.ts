@@ -20,12 +20,12 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'bun src/server.ts',
+      command: 'bun src/cli.ts',
       url: 'http://localhost:3000',
       reuseExistingServer: !(process.env.CI !== undefined && process.env.CI !== ''),
     },
     {
-      command: 'bunx serve . --listen 3001 --no-clipboard',
+      command: 'bunx serve . --listen 3001 --no-clipboard --config serve.json',
       url: 'http://localhost:3001',
       reuseExistingServer: !(process.env.CI !== undefined && process.env.CI !== ''),
     },

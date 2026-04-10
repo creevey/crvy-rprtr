@@ -72,6 +72,8 @@ if [ "$STAGED_MODE" = true ]; then
   (
     exit_code=0
     bunx oxfmt --check --ignore-path=.oxfmtignore "${relevant_files[@]}" >"$TMPDIR/format_check.out" 2>&1 || exit_code=$?
+    # exit code 2 means "no target files after applying ignores" - treat as success
+    [ "$exit_code" -eq 2 ] && exit_code=0
     echo "$exit_code" >"$TMPDIR/format_check.exit"
   ) &
   format_pid=$!

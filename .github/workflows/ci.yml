@@ -72,7 +72,7 @@ jobs:
       options: --ipc=host
     steps:
       - name: Install git-lfs
-        run: apt-get update -qq && apt-get install -y -qq git-lfs
+        run: apt-get update -qq && apt-get install -y -qq git-lfs unzip
 
       - name: Checkout
         uses: actions/checkout@v4

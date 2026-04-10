@@ -4,6 +4,8 @@ import { createServer } from 'net'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 
+const distDir = join(import.meta.dir, '..', 'dist')
+
 interface RunningProcess {
   process: Bun.Subprocess<'ignore', 'pipe', 'pipe'>
   stdoutPromise: Promise<string>
@@ -129,28 +131,28 @@ afterEach(async () => {
 
 describe('runtime smoke tests', () => {
   test('published CLI starts under Node', async () => {
-    expect(existsSync('./dist/cli.js')).toBe(true)
+    expect(existsSync(join(distDir, 'cli.js'))).toBe(true)
 
     const port = await reservePort()
-    const runningProcess = spawnProcess(['node', './dist/cli.js', '--port', `${port}`])
+    const runningProcess = spawnProcess(['node', join(distDir, 'cli.js'), '--port', `${port}`])
 
     await waitForServerOrThrow(port, runningProcess)
   })
 
   test('published CLI starts under Bun', async () => {
-    expect(existsSync('./dist/cli.js')).toBe(true)
+    expect(existsSync(join(distDir, 'cli.js'))).toBe(true)
 
     const port = await reservePort()
-    const runningProcess = spawnProcess(['bun', './dist/cli.js', '--port', `${port}`])
+    const runningProcess = spawnProcess(['bun', join(distDir, 'cli.js'), '--port', `${port}`])
 
     await waitForServerOrThrow(port, runningProcess)
   })
 
   test('programmatic server API starts under Node', async () => {
-    expect(existsSync('./dist/server.js')).toBe(true)
+    expect(existsSync(join(distDir, 'server.js'))).toBe(true)
 
     const port = await reservePort()
-    const serverModuleUrl = pathToFileURL(join(process.cwd(), 'dist/server.js')).href
+    const serverModuleUrl = pathToFileURL(join(distDir, 'server.js')).href
     const runningProcess = spawnProcess([
       'node',
       '--input-type=module',

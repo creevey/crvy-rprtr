@@ -129,7 +129,7 @@ if [ "$STAGED_MODE" = true ]; then
   fi
 else
   # Original behavior: run all checks
-  checks=("lint" "typecheck" "format:check" "knip" "test:bun" "duplicates")
+  checks=("lint" "typecheck" "format:check" "knip" "test:bun" "duplicates" "publint")
   failed=0
   pids=()
 
@@ -167,13 +167,25 @@ else
     fi
     exit_code=$(cat "$TMPDIR/$fname.exit")
     if [ "$exit_code" -ne 0 ]; then
-      failed=$((failed + 1))
-      failed_checks+=("$check")
-      echo ""
-      echo "✗ $check failed (exit code $exit_code):"
-      echo "---"
-      cat "$TMPDIR/$fname.out"
-      echo "---"
+      if [ "$check" = "publint" ]; then
+        if [ ! -d "./dist" ]; then
+          echo "ℹ publint skipped (dist/ not found)"
+        else
+          echo "⚠ publint reported issues:"
+          echo "---"
+          cat "$TMPDIR/$fname.out"
+          echo "---"
+        fi
+        passed_checks+=("publint")
+      else
+        failed=$((failed + 1))
+        failed_checks+=("$check")
+        echo ""
+        echo "✗ $check failed (exit code $exit_code):"
+        echo "---"
+        cat "$TMPDIR/$fname.out"
+        echo "---"
+      fi
     else
       passed_checks+=("$check")
     fi

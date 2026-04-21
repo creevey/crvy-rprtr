@@ -2,10 +2,12 @@
 // These types serve as the single source of truth
 
 export interface Images {
-  actual: string
+  actual?: string
   expect?: string
   diff?: string
   error?: string
+  approveFromPath?: string
+  approveToPath?: string
 }
 
 export interface Attachment {
@@ -34,6 +36,7 @@ export interface TestData {
   titlePath: string[]
   browser: string
   title: string
+  provider?: 'playwright' | 'vitest'
   skip?: boolean | string
   retries?: number
   status?: TestStatus
@@ -66,12 +69,12 @@ export interface WebSocketMessage {
 
 export interface TestBeginMessage {
   type: 'test-begin'
-  data: { id: string; title: string; location: Location }
+  data: { id: string; title: string; location: Location; provider?: 'playwright' | 'vitest' }
 }
 
 export interface TestEndMessage {
   type: 'test-end'
-  data: PlaywrightTestResult
+  data: ReporterTestResult
 }
 
 export interface RunEndMessage {
@@ -79,12 +82,13 @@ export interface RunEndMessage {
   data: { status: 'passed' | 'failed' | 'skipped'; count: number }
 }
 
-export interface PlaywrightTestResult {
+export interface ReporterTestResult {
   id: string
   title: string
   location: Location
   status: 'passed' | 'failed' | 'skipped'
   attachments: Attachment[]
+  images?: Partial<Record<string, Images>>
   error?: string
   duration?: number
 }
@@ -103,7 +107,7 @@ export interface CreeveyViewFilter {
 
 export interface OfflineEvent {
   type: 'test-begin' | 'test-end' | 'run-end'
-  data: TestBeginMessage['data'] | TestEndMessage['data'] | RunEndMessage['data']
+  data: unknown
   timestamp: number
   workerIndex: number
 }

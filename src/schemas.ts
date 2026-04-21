@@ -10,10 +10,12 @@ export type Location = z.infer<typeof LocationSchema>
 
 // Images schema
 export const ImagesSchema = z.object({
-  actual: z.string(),
+  actual: z.string().optional(),
   expect: z.string().optional(),
   diff: z.string().optional(),
   error: z.string().optional(),
+  approveFromPath: z.string().optional(),
+  approveToPath: z.string().optional(),
 })
 
 export type Images = z.infer<typeof ImagesSchema>
@@ -50,6 +52,7 @@ export const TestDataSchema = z.object({
   titlePath: z.array(z.string()),
   browser: z.string(),
   title: z.string(),
+  provider: z.enum(['playwright', 'vitest']).optional(),
   skip: z.union([z.boolean(), z.string()]).optional(),
   retries: z.number().optional(),
   status: TestStatusSchema.optional(),
@@ -110,6 +113,7 @@ export const TestBeginDataSchema = z.object({
   titlePath: z.array(z.string()),
   browser: z.string(),
   location: LocationSchema,
+  provider: z.enum(['playwright', 'vitest']).optional(),
 })
 
 export type TestBeginData = z.infer<typeof TestBeginDataSchema>
@@ -119,6 +123,8 @@ export const TestEndDataSchema = z.object({
   id: z.string(),
   status: z.enum(['passed', 'failed', 'skipped']),
   attachments: z.array(AttachmentSchema),
+  // eslint-disable-next-line typescript/no-unsafe-type-assertion
+  images: z.record(z.string(), ImagesSchema).optional() as z.ZodType<Partial<Record<string, Images>>>,
   error: z.string().optional(),
   duration: z.number().optional(),
 })

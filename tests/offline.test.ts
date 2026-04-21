@@ -8,6 +8,7 @@ import type { OfflineReport } from '../src/schemas'
 
 const TEST_WORKER_INDEX = '99'
 const TEST_REPORT_PATH = `./creevey-offline-report-${TEST_WORKER_INDEX}.json`
+const TEST_SCREENSHOT_DIR = './test-offline-screenshots'
 
 function assertValidOfflineReport(value: unknown): OfflineReport {
   const parsed = safeParse(OfflineReportSchema, value)
@@ -35,6 +36,9 @@ describe('Offline Mode', () => {
         await rm(TEST_REPORT_PATH)
       }
     } catch {}
+    try {
+      await rm(TEST_SCREENSHOT_DIR, { recursive: true, force: true })
+    } catch {}
     process.env.TEST_WORKER_INDEX = originalWorkerIndex
   })
 
@@ -48,14 +52,14 @@ describe('Offline Mode', () => {
 
     // Cast to access private methods for testing
     type TestReporter = {
-      connect: () => void
+      onBegin: (config: object, suite: { allTests: () => object[] }) => Promise<void>
       onTestBegin: (test: object) => void
       onTestEnd: (test: object, result: object) => Promise<void>
       onEnd: (result: { status: string }) => Promise<void>
     }
     const reporterAny = reporter as unknown as TestReporter
 
-    reporterAny.connect()
+    await reporterAny.onBegin({}, { allTests: () => [{ id: 'test-1' }] })
 
     await Bun.sleep(100)
 
@@ -113,12 +117,12 @@ describe('Offline Mode', () => {
     })
 
     type TestReporter = {
-      connect: () => void
+      onBegin: (config: object, suite: { allTests: () => object[] }) => Promise<void>
       onEnd: (result: { status: string }) => Promise<void>
     }
     const reporterAny = reporter as unknown as TestReporter
 
-    reporterAny.connect()
+    await reporterAny.onBegin({}, { allTests: () => [] })
 
     await Bun.sleep(100)
 

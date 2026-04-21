@@ -18,13 +18,14 @@ export interface HandlerContext {
 }
 
 export function handleTestBegin(ctx: HandlerContext, data: TestBeginData): void {
-  const { id, title, titlePath, browser, location } = data
+  const { id, title, titlePath, browser, location, provider } = data
   ctx.currentRunIds.add(id)
   ctx.reportData.tests[id] ??= {
     id,
     titlePath: titlePath ?? [],
     browser: browser ?? '',
     title: title ?? '',
+    provider,
     location,
     status: 'running',
   }
@@ -35,7 +36,7 @@ export function handleTestEnd(ctx: HandlerContext, data: TestEndData): void {
   const test = ctx.reportData.tests[data.id]
   if (test !== null && test !== undefined) {
     test.status = mapStatus(data.status)
-    let images = attachmentsToImages(data.attachments)
+    let images = data.images ?? attachmentsToImages(data.attachments)
     // For passing tests with no new attachments, preserve images from the
     // previous passing result (actual-only, no diff) so screenshot tests
     // remain visible across runs without re-uploading the baseline.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'fs/promises'
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { dirname, join } from 'path'
 
@@ -54,6 +54,17 @@ interface MockVitestCase {
   result: () => MockVitestResult
 }
 
+interface CreateTestCaseOptions {
+  readonly artifacts: readonly MockVitestArtifact[]
+  readonly browser?: string
+  readonly errors?: readonly Readonly<{ message: string }>[]
+  readonly file: string
+  readonly id: string
+  readonly line?: number
+  readonly name: string
+  readonly suiteName?: string
+}
+
 const cleanupDirs: string[] = []
 
 afterEach(async () => {
@@ -66,16 +77,8 @@ async function createTempDir(): Promise<string> {
   return dir
 }
 
-function createTestCase(options: {
-  artifacts: MockVitestArtifact[]
-  browser?: string
-  errors?: Array<{ message: string }>
-  file: string
-  id: string
-  line?: number
-  name: string
-  suiteName?: string
-}): MockVitestCase {
+// oxlint-disable-next-line typescript-eslint/prefer-readonly-parameter-types
+function createTestCase(options: CreateTestCaseOptions): MockVitestCase {
   const browser = options.browser ?? 'chromium'
   const suiteName = options.suiteName ?? 'visual'
 
@@ -97,10 +100,10 @@ function createTestCase(options: {
         },
       },
     },
-    artifacts: (): MockVitestArtifact[] => options.artifacts,
+    artifacts: (): MockVitestArtifact[] => [...options.artifacts],
     result: (): MockVitestResult => ({
       state: 'failed' as const,
-      errors: options.errors ?? [{ message: 'visual mismatch' }],
+      errors: options.errors === undefined ? [{ message: 'visual mismatch' }] : [...options.errors],
     }),
     diagnostic: (): MockVitestDiagnostic => ({
       duration: 42,
@@ -247,5 +250,91 @@ describe('CreeveyVitestReporter', () => {
     expect(image.actual).toBeUndefined()
     expect(image.approveToPath).toBe(referencePath)
     expect(image.approveFromPath).toBe(join(screenshotDir, 'vitest-2', 'hero-section-expected.png'))
+  })
+
+  test('resolves relative screenshot paths to absolute approval paths', async () => {
+    const root = await createTempDir()
+    const originalCwd = process.cwd()
+    const testFile = join(root, 'tests', 'hero.test.ts')
+    const referencePath = join(
+      root,
+      'tests',
+      '__screenshots__',
+      'hero.test.ts',
+      `hero-section-chromium-${process.platform}.png`,
+    )
+    const actualPath = join(
+      root,
+      '.vitest-attachments',
+      'tests',
+      'hero.test.ts',
+      `hero-section-chromium-${process.platform}-actual.png`,
+    )
+    const diffPath = join(
+      root,
+      '.vitest-attachments',
+      'tests',
+      'hero.test.ts',
+      `hero-section-chromium-${process.platform}-diff.png`,
+    )
+    const screenshotDir = 'relative-screenshots'
+    const reportPath = 'relative-report.json'
+
+    await mkdir(dirname(referencePath), { recursive: true })
+    await mkdir(dirname(actualPath), { recursive: true })
+    await mkdir(dirname(diffPath), { recursive: true })
+    await writeFile(referencePath, 'reference')
+    await writeFile(actualPath, 'actual')
+    await writeFile(diffPath, 'diff')
+
+    process.chdir(root)
+
+    try {
+      const reporter = new CreeveyVitestReporter({
+        serverUrl: 'ws://localhost:9999',
+        screenshotDir,
+        offlineReportPath: reportPath,
+      })
+
+      reporter.onInit({ config: { root } } as never)
+      await reporter.onBrowserInit?.({ name: 'chromium' } as never)
+      await Bun.sleep(100)
+
+      const testCase = createTestCase({
+        id: 'vitest-relative',
+        name: 'resolves relative screenshot paths',
+        file: testFile,
+        artifacts: [
+          {
+            type: 'internal:toMatchScreenshot',
+            kind: 'visual-regression',
+            message: 'mismatch',
+            attachments: [
+              { name: 'reference', path: referencePath, contentType: 'image/png', width: 100, height: 100 },
+              { name: 'actual', path: actualPath, contentType: 'image/png', width: 100, height: 100 },
+              { name: 'diff', path: diffPath, contentType: 'image/png', width: 100, height: 100 },
+            ],
+          },
+        ],
+      })
+
+      reporter.onTestCaseReady?.(testCase as never)
+      await reporter.onTestCaseResult?.(testCase as never)
+      process.chdir(originalCwd)
+      await reporter.onTestRunEnd?.([], [], 'failed')
+
+      const report = await readOfflineReport(join(root, reportPath))
+      expect(report).not.toBeNull()
+
+      const event = report!.events[1] as { data: { images: Record<string, Record<string, string>> } }
+      const image = event.data.images['hero-section']
+
+      expect(image.approveFromPath).toBe(
+        await realpath(join(root, screenshotDir, 'vitest-relative', 'hero-section-actual.png')),
+      )
+      expect(image.approveToPath).toBe(referencePath)
+    } finally {
+      process.chdir(originalCwd)
+    }
   })
 })

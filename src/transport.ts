@@ -1,5 +1,5 @@
 import { copyFile, mkdir, writeFile } from 'fs/promises'
-import { join } from 'path'
+import { join, resolve as resolvePath } from 'path'
 
 import pLimit from 'p-limit'
 
@@ -37,12 +37,12 @@ export class CreeveyTransport {
   private isOfflineMode = false
   private offlineEvents: Array<{ type: 'test-begin' | 'test-end' | 'run-end'; data: unknown }> = []
 
-  constructor(options: CreeveyTransportOptions = {}) {
+  constructor(options: Readonly<CreeveyTransportOptions> = {}) {
     this.serverUrl = options.serverUrl ?? 'ws://localhost:3000'
-    this.screenshotDir = options.screenshotDir ?? './screenshots'
     this.workerIndex = parseInt(process.env.TEST_WORKER_INDEX ?? '0', 10) || 0
-    this.offlineReportPath = options.offlineReportPath ?? `./crvy-rprtr-${this.workerIndex}.json`
-    this.reportHtmlPath = options.reportHtmlPath ?? './crvy-rprtr.html'
+    this.screenshotDir = resolvePath(options.screenshotDir ?? './screenshots')
+    this.offlineReportPath = resolvePath(options.offlineReportPath ?? `./crvy-rprtr-${this.workerIndex}.json`)
+    this.reportHtmlPath = resolvePath(options.reportHtmlPath ?? './crvy-rprtr.html')
   }
 
   async start(): Promise<void> {
@@ -58,12 +58,12 @@ export class CreeveyTransport {
     return join(this.screenshotDir, relativePath)
   }
 
-  async saveArtifacts(testId: string, artifacts: CopyArtifact[]): Promise<SavedAttachment[]> {
+  async saveArtifacts(testId: string, artifacts: ReadonlyArray<Readonly<CopyArtifact>>): Promise<SavedAttachment[]> {
     const savedAttachments: SavedAttachment[] = []
     const testScreenshotDirName = this.sanitizeId(testId)
     const testScreenshotDir = join(this.screenshotDir, testScreenshotDirName)
 
-    const copyPromises = artifacts.map((artifact) =>
+    const copyPromises = artifacts.map((artifact: Readonly<CopyArtifact>) =>
       this.limit(async () => {
         try {
           await mkdir(testScreenshotDir, { recursive: true })
@@ -93,7 +93,7 @@ export class CreeveyTransport {
     return savedAttachments
   }
 
-  send(message: WebSocketMessage): void {
+  send(message: Readonly<WebSocketMessage>): void {
     if (message.type === 'test-begin' || message.type === 'test-end' || message.type === 'run-end') {
       this.offlineEvents.push({
         type: message.type,
@@ -172,7 +172,8 @@ export class CreeveyTransport {
           this.ws?.send(message)
         }
       }
-      this.ws.onerror = (error): void => {
+      // oxlint-disable-next-line typescript-eslint/prefer-readonly-parameter-types
+      this.ws.onerror = (error: Readonly<Event>): void => {
         console.error('[CrvyRprtr] WebSocket error:', error)
         this.enableOfflineMode()
       }
@@ -198,7 +199,7 @@ export class CreeveyTransport {
       version: 1,
       generatedAt: new Date().toISOString(),
       workers: this.workerIndex + 1,
-      events: this.offlineEvents.map((event) => ({
+      events: this.offlineEvents.map((event: Readonly<(typeof this.offlineEvents)[number]>) => ({
         ...event,
         timestamp: Date.now(),
         workerIndex: this.workerIndex,

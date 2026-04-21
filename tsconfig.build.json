@@ -2,13 +2,19 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": false,
+    "emitDeclarationOnly": true,
     "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "emitDeclarationOnly": true
+    "declarationMap": false,
+    "outDir": "./dist"
   },
-  "include": ["src/reporter.ts", "src/server.ts", "src/types.ts", "src/cli.ts"],
-  "exclude": ["src/client/**", "src/index.ts", "node_modules"]
+  "include": [
+    "src/cli.ts",
+    "src/images.ts",
+    "src/reporter.ts",
+    "src/schemas.ts",
+    "src/server.ts",
+    "src/transport.ts",
+    "src/types.ts",
+    "src/vitest.ts"
+  ]
 }

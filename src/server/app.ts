@@ -208,7 +208,7 @@ async function resolveStaticDir(staticDir?: string): Promise<string> {
     return resolved.candidate
   }
 
-  return candidates[0]!
+  return candidates[0]
 }
 
 async function resolveReportPath(reportPath: string): Promise<{ reportFile: string; offlineReportDir: string }> {

@@ -40,6 +40,42 @@ function preservePreviousPassingImages(
   return hasReviewablePassingImages(previousImages) ? previousImages : images
 }
 
+function rewriteScreenshotUrl(url: string | undefined, screenshotsBaseUrl: string | undefined): string | undefined {
+  if (url === undefined || screenshotsBaseUrl === undefined || !url.startsWith('/screenshots/')) {
+    return url
+  }
+
+  const baseUrl = screenshotsBaseUrl.endsWith('/') ? screenshotsBaseUrl : `${screenshotsBaseUrl}/`
+  return `${baseUrl}${url.slice('/screenshots/'.length)}`
+}
+
+function resolveImages(
+  data: TestEndData,
+  test: TestData,
+  screenshotsBaseUrl: string | undefined,
+): Partial<Record<string, Images>> {
+  const sourceImages = data.images ?? attachmentsToImages(data.attachments, screenshotsBaseUrl)
+  if (data.images === undefined || screenshotsBaseUrl === undefined || screenshotsBaseUrl === '/screenshots/') {
+    return preservePreviousPassingImages(test, data.status, sourceImages)
+  }
+
+  const rewrittenImages = Object.fromEntries(
+    Object.entries(sourceImages).map(([imageName, image]) => [
+      imageName,
+      image === undefined
+        ? image
+        : {
+            ...image,
+            actual: rewriteScreenshotUrl(image.actual, screenshotsBaseUrl),
+            expect: rewriteScreenshotUrl(image.expect, screenshotsBaseUrl),
+            diff: rewriteScreenshotUrl(image.diff, screenshotsBaseUrl),
+          },
+    ]),
+  )
+
+  return preservePreviousPassingImages(test, data.status, rewrittenImages)
+}
+
 function countDiffImages(images: Partial<Record<string, Images>>): number {
   return Object.values(images).filter((img) => img?.diff !== null && img?.diff !== undefined).length
 }
@@ -58,13 +94,14 @@ export function createMutableReportState(screenshotDir = './screenshots'): Mutab
 }
 
 export function applyTestBeginEvent(state: MutableReportState, data: TestBeginData): TestData {
-  const { id, title, titlePath, browser, location } = data
+  const { id, title, titlePath, browser, location, provider } = data
   state.currentRunIds.add(id)
   state.reportData.tests[id] ??= {
     id,
     titlePath: titlePath ?? [],
     browser: browser ?? '',
     title: title ?? '',
+    provider,
     location,
     status: 'running',
   }
@@ -83,11 +120,7 @@ export function applyTestEndEvent(
   }
 
   test.status = mapStatus(data.status)
-  const images = preservePreviousPassingImages(
-    test,
-    data.status,
-    attachmentsToImages(data.attachments, options.screenshotsBaseUrl),
-  )
+  const images = resolveImages(data, test, options.screenshotsBaseUrl)
 
   // New failure with diff images invalidates any prior approval.
   const diffCount = countDiffImages(images)

@@ -34,11 +34,15 @@
   "exports": {
     ".": {
       "types": "./dist/reporter.d.ts",
-      "import": "./dist/reporter.js"
+      "import": "./dist/reporter.js",
+      "require": "./dist/reporter.cjs",
+      "default": "./dist/reporter.js"
     },
     "./server": {
       "types": "./dist/server.d.ts",
-      "import": "./dist/server.js"
+      "import": "./dist/server.js",
+      "require": "./dist/server.cjs",
+      "default": "./dist/server.js"
     },
     "./types": {
       "types": "./dist/types.d.ts"

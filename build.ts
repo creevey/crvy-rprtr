@@ -38,6 +38,18 @@ await build({
   packages: 'external',
 })
 
+// Build CJS versions of server-side entry points (for CJS require() resolution compatibility)
+await build({
+  entryPoints: ['./src/reporter.ts', './src/server.ts'],
+  bundle: true,
+  outdir: './dist',
+  format: 'cjs',
+  target: 'es2022',
+  platform: 'node',
+  packages: 'external',
+  outExtension: { '.js': '.cjs' },
+})
+
 // Generate .d.ts files via tsc
 const tsc = Bun.spawn(['bunx', 'tsc', '--project', 'tsconfig.build.json'], {
   stdout: 'inherit',

@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2026-04-23
+
+### Added
+
+- Add CJS build for reporter and server entry points
+- Add require export conditions for CJS resolution
+
+### Documentation
+
+- Add publint integration design spec
+- Add publint integration plan
+
+### Fixed
+
+- Add @playwright/test to knip ignoreDependencies
+
+### Miscellaneous
+
+- Remove local smoke-test project
+
+### Testing
+
+- Approve screenshot baselines for darwin and linux
+- Add smoke test for CJS/ESM dual resolution
+
+### Ci
+
+- Run Playwright tests inside Playwright Docker container
+- Add unzip for setup-bun in Playwright container
+- Add publint as non-blocking check in check.sh
+
+### Deps
+
+- Add publint for package.json validation
+- Add publint for package.json validation
+
+### Pub
+
+- Chain publint after build in prepublishOnly
 ## [0.0.3] - 2026-04-10
 
 ### Fixed

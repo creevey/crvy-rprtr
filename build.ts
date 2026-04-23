@@ -50,6 +50,36 @@ await build({
   outExtension: { '.js': '.cjs' },
 })
 
+// Fix CJS interop issues in esbuild output
+// NOTE: These patches rely on `packages: 'external'` above, which ensures only ESM-only
+// deps (like p-limit) go through __toESM. Adding CJS deps with require() would break Fix 1.
+const cjsFiles = ['./dist/reporter.cjs', './dist/server.cjs']
+const patchedFiles = await Promise.all(
+  cjsFiles.map(async (file) => {
+    let content = await Bun.file(file).text()
+
+    // Fix 1: __toESM - when isNodeMode=1 and mod.__esModule is true, esbuild incorrectly
+    // sets default to the whole module object instead of mod.default. This breaks ESM-only
+    // packages like p-limit whose default export is a function.
+    const fix1Pattern = 'isNodeMode || !mod || !mod.__esModule'
+    if (!content.includes(fix1Pattern) && content.includes('__toESM')) {
+      throw new Error(`${file}: CJS Fix 1 pattern not found — esbuild output format may have changed`)
+    }
+    content = content.replace(fix1Pattern, '!mod || !mod.__esModule')
+
+    // Fix 2: import.meta.url is undefined in CJS. esbuild emits `var import_meta = {};`
+    // Replace with a polyfill using __filename so fileURLToPath(import_meta.url) works.
+    const fix2Pattern = 'var import_meta = {};'
+    if (content.includes('fileURLToPath') && !content.includes(fix2Pattern)) {
+      throw new Error(`${file}: CJS Fix 2 pattern not found — esbuild output format may have changed`)
+    }
+    content = content.replace(fix2Pattern, 'var import_meta = { url: require("url").pathToFileURL(__filename).href };')
+
+    return { file, content }
+  }),
+)
+await Promise.all(patchedFiles.map(({ file, content }) => Bun.write(file, content)))
+
 // Generate .d.ts files via tsc
 const tsc = Bun.spawn(['bunx', 'tsc', '--project', 'tsconfig.build.json'], {
   stdout: 'inherit',

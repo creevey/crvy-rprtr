@@ -1,0 +1,15 @@
+{
+  "name": "smoke-test",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:repro": "node -e \"require('@crvy/rprtr')\""
+  },
+  "dependencies": {
+    "@crvy/rprtr": "file:.."
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}

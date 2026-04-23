@@ -9,6 +9,7 @@ import type { OfflineReport } from '../src/schemas'
 const TEST_WORKER_INDEX = '99'
 const TEST_REPORT_PATH = `./crvy-rprtr-${TEST_WORKER_INDEX}.json`
 const TEST_ARTIFACT_PATH = './test-crvy-rprtr.html'
+const TEST_SCREENSHOT_DIR = './test-offline-screenshots'
 
 function assertValidOfflineReport(value: unknown): OfflineReport {
   const parsed = safeParse(OfflineReportSchema, value)
@@ -42,6 +43,9 @@ describe('Offline Mode', () => {
         await rm(TEST_ARTIFACT_PATH)
       }
     } catch {}
+    try {
+      await rm(TEST_SCREENSHOT_DIR, { recursive: true, force: true })
+    } catch {}
     process.env.TEST_WORKER_INDEX = originalWorkerIndex
   })
 
@@ -50,24 +54,22 @@ describe('Offline Mode', () => {
 
     const reporter = new CrvyRprtr({
       serverUrl: 'ws://localhost:9999',
-      screenshotDir: './test-offline-screenshots',
+      screenshotDir: TEST_SCREENSHOT_DIR,
       reportHtmlPath: TEST_ARTIFACT_PATH,
     })
 
-    // Cast to access private methods for testing
     type TestReporter = {
-      connect: () => void
+      onBegin: (config: object, suite: { allTests: () => object[] }) => Promise<void>
       onTestBegin: (test: object) => void
       onTestEnd: (test: object, result: object) => Promise<void>
       onEnd: (result: { status: string }) => Promise<void>
     }
     const reporterAny = reporter as unknown as TestReporter
 
-    reporterAny.connect()
+    await reporterAny.onBegin({}, { allTests: () => [{ id: 'test-1' }] })
 
     await Bun.sleep(100)
 
-    // Simulate test events via the public API
     reporterAny.onTestBegin({
       id: 'test-1',
       title: 'Test 1',
@@ -110,6 +112,7 @@ describe('Offline Mode', () => {
     expect(report.events[0]?.type).toBe('test-begin')
     expect(report.events[1]?.type).toBe('test-end')
     expect(report.events[2]?.type).toBe('run-end')
+    expect(existsSync(TEST_ARTIFACT_PATH)).toBe(true)
   })
 
   test('offline report contains run-end event even with no other events', async () => {
@@ -117,17 +120,17 @@ describe('Offline Mode', () => {
 
     const reporter = new CrvyRprtr({
       serverUrl: 'ws://localhost:9999',
-      screenshotDir: './test-offline-screenshots',
+      screenshotDir: TEST_SCREENSHOT_DIR,
       reportHtmlPath: TEST_ARTIFACT_PATH,
     })
 
     type TestReporter = {
-      connect: () => void
+      onBegin: (config: object, suite: { allTests: () => object[] }) => Promise<void>
       onEnd: (result: { status: string }) => Promise<void>
     }
     const reporterAny = reporter as unknown as TestReporter
 
-    reporterAny.connect()
+    await reporterAny.onBegin({}, { allTests: () => [] })
 
     await Bun.sleep(100)
 
@@ -143,6 +146,7 @@ describe('Offline Mode', () => {
     expect(report.version).toBe(1)
     expect(report.events).toHaveLength(1)
     expect(report.events[0]?.type).toBe('run-end')
+    expect(existsSync(TEST_ARTIFACT_PATH)).toBe(true)
   })
 
   test('reporter enters offline mode when WebSocket is unavailable in the runtime', async () => {
@@ -157,17 +161,17 @@ describe('Offline Mode', () => {
     try {
       const reporter = new CrvyRprtr({
         serverUrl: 'ws://localhost:3000',
-        screenshotDir: './test-offline-screenshots',
+        screenshotDir: TEST_SCREENSHOT_DIR,
         reportHtmlPath: TEST_ARTIFACT_PATH,
       })
 
       type TestReporter = {
-        connect: () => void
         onEnd: (result: { status: string }) => Promise<void>
+        onBegin: (config: object, suite: { allTests: () => object[] }) => Promise<void>
       }
       const reporterAny = reporter as unknown as TestReporter
 
-      reporterAny.connect()
+      await reporterAny.onBegin({}, { allTests: () => [] })
       await reporterAny.onEnd({ status: 'passed' })
 
       expect(existsSync(TEST_REPORT_PATH)).toBe(true)
@@ -178,6 +182,7 @@ describe('Offline Mode', () => {
 
       expect(report.events).toHaveLength(1)
       expect(report.events[0]?.type).toBe('run-end')
+      expect(existsSync(TEST_ARTIFACT_PATH)).toBe(true)
     } finally {
       if (originalWebSocketDescriptor !== undefined) {
         Object.defineProperty(globalThis, 'WebSocket', originalWebSocketDescriptor)

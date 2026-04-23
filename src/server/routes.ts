@@ -1,7 +1,7 @@
 import { join } from 'path'
 
 import { ApproveRequestBodySchema, safeParse } from '../schemas.ts'
-import type { TestData } from '../types.ts'
+import type { Images, TestData } from '../types.ts'
 import { copyFilePortable, respondWithFile } from './file-utils.ts'
 
 export interface RoutesContext {
@@ -52,6 +52,15 @@ function handleApiReport(ctx: RoutesContext): Response {
   return Response.json(ctx.reportData)
 }
 
+async function updateBaseline(image: Images | undefined): Promise<void> {
+  const approveFromPath = image?.approveFromPath
+  const approveToPath = image?.approveToPath
+  if (approveFromPath === undefined || approveToPath === undefined) return
+
+  await copyFilePortable(approveFromPath, approveToPath)
+  console.log(`  ✔ Updated baseline: ${approveToPath}`)
+}
+
 async function handleApiApprove(ctx: RoutesContext, req: Request): Promise<Response> {
   try {
     const rawBody: unknown = await req.json()
@@ -68,22 +77,11 @@ async function handleApiApprove(ctx: RoutesContext, req: Request): Promise<Respo
       test.approved[image] = retry
       await ctx.saveReport()
 
-      const actualUrl = test.results?.[retry]?.images?.[image]?.actual
-      if (
-        actualUrl !== null &&
-        actualUrl !== undefined &&
-        test.location?.file !== null &&
-        test.location?.file !== undefined
-      ) {
-        const actualPath = actualUrl.replace('/screenshots/', `${ctx.reportData.screenshotDir}/`)
-        const snapshotPath = `${test.location.file}-snapshots/${image}-${test.browser}-${process.platform}.png`
-        try {
-          await copyFilePortable(actualPath, snapshotPath)
-          console.log(`  ✔ Updated baseline: ${snapshotPath}`)
-        } catch (err: unknown) {
-          const errorMsg = err instanceof Error ? err.message : String(err)
-          console.error(`  ✗ Failed to update baseline: ${errorMsg}`)
-        }
+      try {
+        await updateBaseline(test.results?.[retry]?.images?.[image])
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err)
+        console.error(`  ✗ Failed to update baseline: ${errorMsg}`)
       }
 
       console.log(`  ✔ Approved [${test.browser}] ${test.title} — ${image}`)
@@ -109,26 +107,12 @@ async function handleApiApproveAll(ctx: RoutesContext): Promise<Response> {
       approved[imageName] = lastRetry
       approvedCount++
 
-      const actualUrl = lastResult.images?.[imageName]?.actual
-      if (
-        actualUrl !== null &&
-        actualUrl !== undefined &&
-        test.location?.file !== null &&
-        test.location?.file !== undefined
-      ) {
-        const actualPath = actualUrl.replace('/screenshots/', `${ctx.reportData.screenshotDir}/`)
-        const snapshotPath = `${test.location.file}-snapshots/${imageName}-${test.browser}-${process.platform}.png`
-        baselineUpdates.push(
-          copyFilePortable(actualPath, snapshotPath)
-            .then(() => {
-              console.log(`  ✔ Updated baseline: ${snapshotPath}`)
-            })
-            .catch((err: unknown) => {
-              const errorMsg = err instanceof Error ? err.message : String(err)
-              console.error(`  ✗ Failed to update baseline: ${errorMsg}`)
-            }),
-        )
-      }
+      baselineUpdates.push(
+        updateBaseline(lastResult.images?.[imageName]).catch((err: unknown) => {
+          const errorMsg = err instanceof Error ? err.message : String(err)
+          console.error(`  ✗ Failed to update baseline: ${errorMsg}`)
+        }),
+      )
     })
     test.approved = approved
   })
@@ -165,6 +149,14 @@ async function handleDist(ctx: RoutesContext, req: Request): Promise<Response> {
         : 'application/octet-stream'
   const file = await respondWithFile(filePath, contentType)
   return file ?? new Response('Not Found', { status: 404 })
+}
+
+export function createRoutes(ctx: RoutesContext): Record<string, (req: Request) => Promise<Response>> {
+  return {
+    '/api/approve': (req: Request) => handleApiApprove(ctx, req),
+    '/api/approve-all': () => handleApiApproveAll(ctx),
+    '/api/report': async () => handleApiReport(ctx),
+  }
 }
 
 export function handleHttpRequest(ctx: RoutesContext, req: Request): Promise<Response> {

@@ -1,299 +1,156 @@
-import { mkdir, copyFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 
-import type { Reporter, FullConfig, Suite, TestCase, TestResult, FullResult } from '@playwright/test/reporter'
-import pLimit from 'p-limit'
+import type { FullConfig, FullResult, Reporter, Suite, TestCase, TestResult, TestStep } from '@playwright/test/reporter'
 
-import { writeReportArtifact } from './report-artifact.ts'
-import { extractScreenshotNames } from './reporter-utils.ts'
+import { buildImagesFromAttachments } from './images.ts'
+import { CreeveyTransport, type CreeveyTransportOptions, type SavedAttachment } from './transport.ts'
+import type { WebSocketMessage } from './types.ts'
 
-const MAX_CONCURRENT_FILE_OPS = 5
-
-export interface CrvyRprtrOptions {
-  serverUrl?: string
-  screenshotDir?: string
-  offlineReportPath?: string
-  reportHtmlPath?: string
+function extractScreenshotNames(steps: TestStep[]): string[] {
+  const names: string[] = []
+  for (const step of steps) {
+    const match = step.title.match(/toHaveScreenshot\((.+?)\)/)
+    if (match?.[1] !== undefined && match[1] !== '') names.push(match[1])
+    if (step.steps.length > 0) names.push(...extractScreenshotNames(step.steps))
+  }
+  return names
 }
 
-interface AttachmentData {
-  name: string
-  path: string
-  contentType: string
+function getTitlePath(test: TestCase): string[] {
+  const titlePath: string[] = []
+  let suite: Suite | undefined = test.parent
+
+  while (suite !== undefined && suite.type === 'describe') {
+    titlePath.unshift(suite.title)
+    suite = suite.parent
+  }
+
+  return titlePath
 }
+
+export interface CrvyRprtrOptions extends CreeveyTransportOptions {}
 
 export class CrvyRprtr implements Reporter {
-  private ws: WebSocket | null = null
-  private serverUrl: string
-  private screenshotDir: string
-  private queue: string[] = []
-  private workerIndex: number
-  private offlineReportPath: string
-  private reportHtmlPath: string
-  private isOfflineMode = false
-  private hadOfflineMode = false
-  private runEvents: Array<{ type: 'test-begin' | 'test-end' | 'run-end'; data: unknown }> = []
+  private readonly transport: CreeveyTransport
 
   constructor(options: CrvyRprtrOptions = {}) {
-    this.serverUrl = options.serverUrl ?? 'ws://localhost:3000'
-    this.screenshotDir = options.screenshotDir ?? './screenshots'
-    this.workerIndex = parseInt(process.env.TEST_WORKER_INDEX ?? '0', 10) || 0
-    this.offlineReportPath = options.offlineReportPath ?? `./crvy-rprtr-${this.workerIndex}.json`
-    this.reportHtmlPath = options.reportHtmlPath ?? './crvy-rprtr.html'
+    this.transport = new CreeveyTransport(options)
   }
 
-  async onBegin(config: FullConfig, suite: Suite): Promise<void> {
+  connect(): void {
+    void this.transport.start()
+  }
+
+  async onBegin(_config: FullConfig, suite: Suite): Promise<void> {
     console.log(`[CrvyRprtr] Starting run with ${suite.allTests().length} tests`)
-    await mkdir(this.screenshotDir, { recursive: true })
-    this.connect()
-  }
-
-  private connect(): void {
-    const WebSocketConstructor = globalThis.WebSocket
-    if (typeof WebSocketConstructor !== 'function') {
-      console.log('[CrvyRprtr] WebSocket unavailable in current runtime; offline mode enabled')
-      this.enableOfflineMode()
-      return
-    }
-
-    try {
-      this.ws = new WebSocketConstructor(this.serverUrl)
-      this.ws.onopen = (): void => {
-        console.log('[CrvyRprtr] Connected to Crvy Rprtr server')
-        this.isOfflineMode = false
-        for (const msg of this.queue) this.ws!.send(msg)
-        this.queue = []
-      }
-      this.ws.onerror = (error): void => {
-        console.error('[CrvyRprtr] WebSocket error:', error)
-        this.enableOfflineMode()
-      }
-      this.ws.onclose = (): void => {
-        console.log('[CrvyRprtr] Disconnected from Crvy Rprtr server')
-        this.enableOfflineMode()
-      }
-    } catch (e) {
-      console.error('[CrvyRprtr] Failed to connect:', e)
-      this.enableOfflineMode()
-    }
-  }
-
-  private enableOfflineMode(): void {
-    if (!this.isOfflineMode) {
-      this.isOfflineMode = true
-      this.hadOfflineMode = true
-      console.log('[CrvyRprtr] Offline mode enabled - events will be queued to file')
-    }
+    await this.transport.start()
   }
 
   onTestBegin(test: TestCase): void {
-    const titlePath: string[] = []
-    let suite: Suite | undefined = test.parent
-    while (suite && suite.type === 'describe') {
-      titlePath.unshift(suite.title)
-      suite = suite.parent
-    }
-    this.send({
+    const message: WebSocketMessage = {
       type: 'test-begin',
       data: {
         id: test.id,
         title: test.title,
-        titlePath,
+        titlePath: getTitlePath(test),
         browser: test.parent.project()?.name ?? 'chromium',
+        provider: 'playwright',
         location: {
           file: test.location.file,
           line: test.location.line,
         },
       },
-    })
+    }
+
+    this.transport.send(message)
   }
 
   async onTestEnd(test: TestCase, result: TestResult): Promise<void> {
-    const savedAttachments = await this.saveAttachments(test.id, result)
-    await this.copySnapshotBaselines(test, result, savedAttachments)
+    const savedAttachments = await this.saveResultAttachments(test.id, result)
+    const { attachments: baselineAttachments, approvalTargets } = await this.copySnapshotBaselines(test, result)
+    const attachments = [...savedAttachments, ...baselineAttachments]
+    const localPathByAttachment = new Map(attachments.map((attachment) => [attachment.path, attachment.localPath]))
+    const images = buildImagesFromAttachments(
+      attachments.map(({ localPath: _localPath, ...attachment }) => attachment),
+      {
+        approvalTargets,
+        resolveAttachmentPath: (attachmentPath) => localPathByAttachment.get(attachmentPath) ?? attachmentPath,
+      },
+    )
 
-    this.send({
+    this.transport.send({
       type: 'test-end',
       data: {
         id: test.id,
         title: test.title,
+        location: {
+          file: test.location.file,
+          line: test.location.line,
+        },
         status: result.status,
-        attachments: savedAttachments,
+        attachments: attachments.map(({ localPath: _localPath, ...attachment }) => attachment),
+        images,
         error: result.errors.length > 0 ? result.errors[0]?.message : undefined,
         duration: result.duration,
       },
     })
   }
 
+  async onEnd(result: FullResult): Promise<void> {
+    await this.transport.finish({
+      status: result.status,
+    })
+  }
+
+  private saveResultAttachments(testId: string, result: TestResult): Promise<SavedAttachment[]> {
+    return this.transport.saveArtifacts(
+      testId,
+      result.attachments
+        .filter(
+          (attachment): attachment is typeof attachment & { path: string } =>
+            attachment.contentType === 'image/png' && attachment.path !== undefined,
+        )
+        .map((attachment) => ({
+          name: attachment.name,
+          sourcePath: attachment.path,
+          contentType: attachment.contentType,
+        })),
+    )
+  }
+
   private async copySnapshotBaselines(
     test: TestCase,
     result: TestResult,
-    savedAttachments: AttachmentData[],
-  ): Promise<void> {
-    if (result.status !== 'passed') return
+  ): Promise<{ attachments: SavedAttachment[]; approvalTargets: Partial<Record<string, string>> }> {
+    if (result.status !== 'passed') {
+      return { attachments: [], approvalTargets: {} }
+    }
+
     const snapshotNames = extractScreenshotNames(result.steps)
-    if (snapshotNames.length === 0) return
+    if (snapshotNames.length === 0) {
+      return { attachments: [], approvalTargets: {} }
+    }
 
     const projectName = test.parent.project()?.name ?? 'chromium'
     const snapshotDir = `${test.location.file}-snapshots`
-    const testScreenshotDir = join(this.screenshotDir, this.sanitizeId(test.id))
-    const limit = pLimit(MAX_CONCURRENT_FILE_OPS)
+    const approvalTargets: Partial<Record<string, string>> = {}
+    const artifacts = snapshotNames.map((name) => {
+      const baseName = name.replace(/\.png$/, '')
+      const snapshotPath = join(snapshotDir, `${baseName}-${projectName}-${process.platform}.png`)
+      approvalTargets[baseName] = snapshotPath
 
-    const copyPromises = snapshotNames.map((name) =>
-      limit(async () => {
-        const baseName = name.replace(/\.png$/, '')
-        const snapshotPath = join(snapshotDir, `${baseName}-${projectName}-${process.platform}.png`)
-        const destName = `${baseName}-expected`
-        const destPath = join(testScreenshotDir, destName)
-        try {
-          await mkdir(testScreenshotDir, { recursive: true })
-          await copyFile(snapshotPath, destPath)
-          savedAttachments.push({
-            name: destName,
-            path: `${this.sanitizeId(test.id)}/${destName}`,
-            contentType: 'image/png',
-          })
-          console.log(`[CrvyRprtr] Attached baseline: ${snapshotPath}`)
-        } catch {
-          // baseline not found yet (first run), skip
-        }
-      }),
-    )
-
-    await Promise.all(copyPromises)
-  }
-
-  private async saveAttachments(testId: string, result: TestResult): Promise<AttachmentData[]> {
-    const savedAttachments: AttachmentData[] = []
-    const testScreenshotDir = join(this.screenshotDir, this.sanitizeId(testId))
-    const limit = pLimit(MAX_CONCURRENT_FILE_OPS)
-
-    const attachmentPromises = result.attachments
-      .filter(
-        (attachment): attachment is typeof attachment & { path: string } =>
-          attachment.contentType === 'image/png' && attachment.path !== undefined,
-      )
-      .map((attachment) =>
-        limit(async () => {
-          try {
-            await mkdir(testScreenshotDir, { recursive: true })
-            const fileName = attachment.name
-            const destPath = join(testScreenshotDir, fileName)
-            await copyFile(attachment.path, destPath)
-            const attachmentData: AttachmentData = {
-              name: attachment.name,
-              path: `${this.sanitizeId(testId)}/${fileName}`,
-              contentType: attachment.contentType,
-            }
-            savedAttachments.push(attachmentData)
-            console.log(`[CrvyRprtr] Saved screenshot: ${destPath}`)
-          } catch (e) {
-            console.error(`[CrvyRprtr] Failed to save screenshot: ${attachment.path}`, e)
-            const fallbackData: AttachmentData = {
-              name: attachment.name,
-              path: attachment.path,
-              contentType: attachment.contentType,
-            }
-            savedAttachments.push(fallbackData)
-          }
-        }),
-      )
-
-    await Promise.all(attachmentPromises)
-
-    return savedAttachments
-  }
-
-  private sanitizeId(id: string): string {
-    return id.replace(/[^a-zA-Z0-9-_]/g, '_')
-  }
-
-  private async writeOfflineReport(): Promise<void> {
-    if (this.runEvents.length === 0) {
-      console.log('[CrvyRprtr] No offline events to write')
-      return
-    }
-
-    try {
-      const report = {
-        version: 1,
-        generatedAt: new Date().toISOString(),
-        workers: this.workerIndex + 1,
-        events: this.runEvents.map((e) => ({
-          ...e,
-          timestamp: Date.now(),
-          workerIndex: this.workerIndex,
-        })),
+      return {
+        name: `${baseName}-expected.png`,
+        sourcePath: snapshotPath,
+        contentType: 'image/png',
       }
-
-      await writeFile(this.offlineReportPath, JSON.stringify(report, null, 2))
-      console.log(`[CrvyRprtr] Wrote offline report: ${this.offlineReportPath}`)
-    } catch (e) {
-      console.error('[CrvyRprtr] Failed to write offline report:', e)
-    }
-  }
-
-  private async writeStaticArtifact(): Promise<void> {
-    try {
-      await writeReportArtifact({
-        events: this.runEvents,
-        screenshotDir: this.screenshotDir,
-        reportHtmlPath: this.reportHtmlPath,
-      })
-      console.log(`[CrvyRprtr] Wrote report artifact: ${this.reportHtmlPath}`)
-    } catch (e) {
-      console.error('[CrvyRprtr] Failed to write report artifact:', e)
-    }
-  }
-
-  async onEnd(result: FullResult): Promise<void> {
-    this.send({
-      type: 'run-end',
-      data: {
-        status: result.status,
-      },
     })
 
-    await this.writeStaticArtifact()
-
-    if (this.hadOfflineMode) {
-      await this.writeOfflineReport()
-    }
-
-    await new Promise<void>((resolve) => {
-      if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
-        resolve()
-        return
-      }
-      this.ws.onclose = (): void => {
-        resolve()
-      }
-      setTimeout(() => {
-        this.ws?.close()
-        resolve()
-      }, 1000)
-      this.ws.close()
-    })
-  }
-
-  private send(msg: object): void {
-    const msgObj = msg as { type?: string; data?: unknown }
-    if (msgObj.type === 'test-begin' || msgObj.type === 'test-end' || msgObj.type === 'run-end') {
-      this.runEvents.push({
-        type: msgObj.type,
-        data: msgObj.data,
-      })
-    }
-
-    const payload = JSON.stringify(msg)
-    if (!this.isOfflineMode) {
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(payload)
-      } else {
-        this.queue.push(payload)
-      }
-    }
+    const attachments = await this.transport.saveArtifacts(test.id, artifacts)
+    return { attachments, approvalTargets }
   }
 }
+
+export const CreeveyReporter = CrvyRprtr
 
 export default CrvyRprtr

@@ -28,7 +28,7 @@ await build({
 
 // Build server-side JS (reporter, server, CLI)
 await build({
-  entryPoints: ['./src/reporter.ts', './src/server.ts', './src/cli.ts'],
+  entryPoints: ['./src/reporter.ts', './src/vitest.ts', './src/server.ts', './src/cli.ts'],
   bundle: true,
   splitting: true,
   outdir: './dist',

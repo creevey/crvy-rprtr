@@ -2,10 +2,12 @@
 // These types serve as the single source of truth
 
 export interface Images {
-  actual: string
+  actual?: string
   expect?: string
   diff?: string
   error?: string
+  approveFromPath?: string
+  approveToPath?: string
 }
 
 export interface Attachment {
@@ -34,6 +36,7 @@ export interface TestData {
   titlePath: string[]
   browser: string
   title: string
+  provider?: 'playwright' | 'vitest'
   skip?: boolean | string
   retries?: number
   status?: TestStatus
@@ -72,18 +75,24 @@ export interface TestBeginMessage {
     titlePath: string[]
     browser: string
     location: Location
+    provider?: 'playwright' | 'vitest'
   }
+}
+
+export interface ReporterTestResult {
+  id: string
+  title: string
+  location: Location
+  status: 'passed' | 'failed' | 'skipped'
+  attachments: Attachment[]
+  images?: Partial<Record<string, Images>>
+  error?: string
+  duration?: number
 }
 
 export interface TestEndMessage {
   type: 'test-end'
-  data: {
-    id: string
-    status: 'passed' | 'failed' | 'skipped'
-    attachments: Attachment[]
-    error?: string
-    duration?: number
-  }
+  data: ReporterTestResult
 }
 
 export interface RunEndMessage {
@@ -105,7 +114,7 @@ export interface CrvyRprtrViewFilter {
 
 export interface OfflineEvent {
   type: 'test-begin' | 'test-end' | 'run-end'
-  data: TestBeginMessage['data'] | TestEndMessage['data'] | RunEndMessage['data']
+  data: unknown
   timestamp: number
   workerIndex: number
 }

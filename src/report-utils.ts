@@ -19,7 +19,7 @@ export function attachmentsToImages(
     const baseName = match[1]
     const role = match[2]
     if (baseName === null || baseName === undefined || role === null || role === undefined) continue
-    images[baseName] ??= { actual: '' }
+    images[baseName] ??= {}
     const url = `${baseUrl}${attachment.path}`
     const img = images[baseName]
     if (img !== null && img !== undefined) {

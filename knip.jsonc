@@ -61,5 +61,6 @@
     "zod",
     "p-limit",
     "ws",
+    "@playwright/test",
   ],
 }

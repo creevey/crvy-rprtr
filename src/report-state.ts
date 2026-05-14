@@ -1,6 +1,6 @@
-import { attachmentsToImages, mapStatus } from './report-utils.ts'
+import { attachmentsToImages, classifyImage, mapStatus, mergeDeclaredImages } from './report-utils.ts'
 import type { TestBeginData, TestEndData } from './schemas.ts'
-import type { Images, TestData } from './types.ts'
+import type { Images, TestData, TestResult } from './types.ts'
 
 export interface MutableReportData {
   isRunning: boolean
@@ -20,11 +20,22 @@ export interface ApplyTestEndResult {
   diffCount: number
 }
 
-function hasReviewablePassingImages(images: Partial<Record<string, Images>>): boolean {
-  return Object.values(images).some(
-    (img) =>
-      img !== null && img !== undefined && img.actual !== null && img.actual !== undefined && img.diff === undefined,
-  )
+function isCurrentArtifact(image: Images | undefined): boolean {
+  return image?.actual !== undefined || image?.expect !== undefined || image?.diff !== undefined
+}
+
+function isReusablePassingImage(image: Images): boolean {
+  const source = image.source ?? classifyImage(image)
+
+  if (source === 'comparison') {
+    return image.actual !== undefined && image.diff === undefined
+  }
+
+  return source === 'baseline-only'
+}
+
+function hasReusablePassingImages(images: Partial<Record<string, Images>>): boolean {
+  return Object.values(images).some((img) => img !== null && img !== undefined && isReusablePassingImage(img))
 }
 
 function preservePreviousPassingImages(
@@ -32,12 +43,33 @@ function preservePreviousPassingImages(
   status: TestEndData['status'],
   images: Partial<Record<string, Images>>,
 ): Partial<Record<string, Images>> {
-  if (status !== 'passed' || Object.keys(images).length > 0) {
+  if (status !== 'passed') {
     return images
   }
 
   const previousImages = test.results?.[0]?.images ?? {}
-  return hasReviewablePassingImages(previousImages) ? previousImages : images
+  if (!hasReusablePassingImages(previousImages)) {
+    return images
+  }
+
+  return Object.entries(previousImages).reduce((currentImages, [name, previousImage]) => {
+    if (
+      !Object.hasOwn(currentImages, name) ||
+      previousImage === undefined ||
+      !isReusablePassingImage(previousImage) ||
+      isCurrentArtifact(currentImages[name])
+    ) {
+      return currentImages
+    }
+
+    return {
+      ...currentImages,
+      [name]: {
+        ...previousImage,
+        source: previousImage.source ?? classifyImage(previousImage),
+      },
+    }
+  }, images)
 }
 
 function countDiffImages(images: Partial<Record<string, Images>>): number {
@@ -83,10 +115,12 @@ export function applyTestEndEvent(
   }
 
   test.status = mapStatus(data.status)
+  const resultStatus: TestResult['status'] =
+    data.status === 'passed' ? 'success' : data.status === 'failed' ? 'failed' : 'pending'
   const images = preservePreviousPassingImages(
     test,
     data.status,
-    attachmentsToImages(data.attachments, options.screenshotsBaseUrl),
+    mergeDeclaredImages(attachmentsToImages(data.attachments, options.screenshotsBaseUrl), data.visualNames),
   )
 
   // New failure with diff images invalidates any prior approval.
@@ -98,7 +132,7 @@ export function applyTestEndEvent(
 
   test.results = [
     {
-      status: data.status === 'passed' ? 'success' : 'failed',
+      status: resultStatus,
       retries: 0,
       images,
       error: data.error,

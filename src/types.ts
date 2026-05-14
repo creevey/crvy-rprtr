@@ -1,11 +1,14 @@
 // Core types used throughout the application
 // These types serve as the single source of truth
 
+export type VisualSource = 'comparison' | 'baseline-only' | 'declared-only'
+
 export interface Images {
-  actual: string
+  actual?: string
   expect?: string
   diff?: string
   error?: string
+  source?: VisualSource
 }
 
 export interface Attachment {
@@ -21,8 +24,10 @@ export interface Location {
 
 export type TestStatus = 'unknown' | 'pending' | 'running' | 'failed' | 'approved' | 'success' | 'retrying'
 
+export type TestResultStatus = 'failed' | 'success' | 'pending'
+
 export interface TestResult {
-  status: 'failed' | 'success'
+  status: TestResultStatus
   retries: number
   images?: Partial<Record<string, Images>>
   error?: string
@@ -81,6 +86,7 @@ export interface TestEndMessage {
     id: string
     status: 'passed' | 'failed' | 'skipped'
     attachments: Attachment[]
+    visualNames: string[]
     error?: string
     duration?: number
   }

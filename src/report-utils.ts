@@ -1,8 +1,41 @@
 import type { Attachment } from './schemas.ts'
-import type { Images, TestData } from './types.ts'
+import type { Images, TestData, VisualSource } from './types.ts'
 
 function normalizeScreenshotsBaseUrl(baseUrl: string): string {
   return baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
+}
+
+export function classifyImage(image: Images): VisualSource {
+  if (image.actual !== undefined || image.diff !== undefined) {
+    return 'comparison'
+  }
+
+  if (image.expect !== undefined) {
+    return 'baseline-only'
+  }
+
+  return 'declared-only'
+}
+
+function withImageSource(image: Images): Images {
+  return {
+    ...image,
+    source: classifyImage(image),
+  }
+}
+
+export function mergeDeclaredImages(
+  images: Partial<Record<string, Images>>,
+  visualNames: readonly string[],
+): Partial<Record<string, Images>> {
+  const names = new Set([...Object.keys(images), ...visualNames])
+
+  return Object.fromEntries(
+    Array.from(names, (name) => {
+      const current = images[name] ?? {}
+      return [name, withImageSource(current)]
+    }),
+  )
 }
 
 export function attachmentsToImages(
@@ -19,7 +52,7 @@ export function attachmentsToImages(
     const baseName = match[1]
     const role = match[2]
     if (baseName === null || baseName === undefined || role === null || role === undefined) continue
-    images[baseName] ??= { actual: '' }
+    images[baseName] ??= {}
     const url = `${baseUrl}${attachment.path}`
     const img = images[baseName]
     if (img !== null && img !== undefined) {
@@ -34,17 +67,12 @@ export function attachmentsToImages(
   // A lone expected (baseline-only, no actual) is kept for display as-is.
   for (const key of Object.keys(images)) {
     const img = images[key]
-    if (
-      img?.actual !== null &&
-      img?.actual !== undefined &&
-      img?.expect !== null &&
-      img?.expect !== undefined &&
-      img?.diff === undefined
-    )
+    if (img?.actual !== undefined && img?.expect !== undefined && img?.diff === undefined) {
       delete img.expect
+    }
   }
 
-  return images
+  return mergeDeclaredImages(images, [])
 }
 
 export function mapStatus(status: 'passed' | 'failed' | 'skipped'): TestData['status'] {

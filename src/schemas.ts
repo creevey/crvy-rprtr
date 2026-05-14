@@ -8,12 +8,17 @@ export const LocationSchema = z.object({
 
 export type Location = z.infer<typeof LocationSchema>
 
+export const VisualSourceSchema = z.enum(['comparison', 'baseline-only', 'declared-only'])
+
+export type VisualSource = z.infer<typeof VisualSourceSchema>
+
 // Images schema
 export const ImagesSchema = z.object({
-  actual: z.string(),
+  actual: z.string().optional(),
   expect: z.string().optional(),
   diff: z.string().optional(),
   error: z.string().optional(),
+  source: VisualSourceSchema.optional(),
 })
 
 export type Images = z.infer<typeof ImagesSchema>
@@ -32,12 +37,15 @@ export const TestStatusSchema = z.enum(['unknown', 'pending', 'running', 'failed
 
 export type TestStatus = z.infer<typeof TestStatusSchema>
 
+export const TestResultStatusSchema = z.enum(['failed', 'success', 'pending'])
+
+export type TestResultStatus = z.infer<typeof TestResultStatusSchema>
+
 // Test result schema
 export const TestResultSchema = z.object({
-  status: z.enum(['failed', 'success']),
+  status: TestResultStatusSchema,
   retries: z.number(),
-  // eslint-disable-next-line typescript/no-unsafe-type-assertion
-  images: z.record(z.string(), ImagesSchema).optional() as z.ZodType<Partial<Record<string, Images>>>,
+  images: z.record(z.string(), ImagesSchema).optional(),
   error: z.string().optional(),
   duration: z.number().optional(),
 })
@@ -88,10 +96,7 @@ export const CrvyRprtrSuiteSchema: z.ZodType<CrvyRprtrSuite> = z.lazy(() =>
     opened: z.boolean(),
     checked: z.boolean(),
     indeterminate: z.boolean(),
-    // eslint-disable-next-line typescript/no-unsafe-type-assertion
-    children: z.record(z.string(), z.union([CrvyRprtrSuiteSchema, CrvyRprtrTestSchema])).optional() as z.ZodType<
-      Partial<Record<string, CrvyRprtrSuite | CrvyRprtrTest>>
-    >,
+    children: z.record(z.string(), z.union([CrvyRprtrSuiteSchema, CrvyRprtrTestSchema])).optional(),
   }),
 )
 
@@ -119,6 +124,7 @@ export const TestEndDataSchema = z.object({
   id: z.string(),
   status: z.enum(['passed', 'failed', 'skipped']),
   attachments: z.array(AttachmentSchema),
+  visualNames: z.array(z.string()).default([]),
   error: z.string().optional(),
   duration: z.number().optional(),
 })

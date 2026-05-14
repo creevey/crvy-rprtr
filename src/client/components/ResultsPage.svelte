@@ -25,6 +25,8 @@
   let imageNames = $derived(result?.images ? Object.keys(result.images) : []);
   let totalRetries = $derived(test.results?.length ?? 0);
   let hasDiffAndExpect = $derived(Boolean(image?.diff && image?.expect));
+  let isBaselineOnly = $derived(image?.source === 'baseline-only');
+  let isDeclaredOnly = $derived(image?.source === 'declared-only');
 
   let imagesWithError = $derived(
     result?.images
@@ -118,12 +120,31 @@
     <div class="min-h-full p-4 max-md:p-2 flex justify-center items-center">
       {#if !image}
         <div class="flex-1 flex items-center justify-center text-fg-muted text-base">No image to display</div>
+      {:else if isDeclaredOnly}
+        <div class="max-w-xl w-full rounded-md border border-edge bg-surface-panel px-5 py-6 text-center">
+          <h3 class="m-0 text-sm font-semibold text-fg-bright uppercase tracking-wide">Passed Visual Assertion</h3>
+          <p class="mt-3 text-sm leading-6 text-fg-muted">
+            Playwright reported this screenshot assertion, but did not emit an actual, expected, or diff artifact for the passing comparison.
+          </p>
+        </div>
       {:else if viewMode === 'side-by-side' || !hasDiffAndExpect}
-        <SideBySideView {image} />
+        <div class="w-full flex flex-col gap-3">
+          {#if isBaselineOnly}
+            <div class="mx-auto max-w-2xl w-full rounded-md border border-info/40 bg-info/10 px-4 py-3 text-sm text-fg">
+              Baseline copied from the stored snapshot. Playwright did not emit a passed actual image for this comparison.
+            </div>
+          {/if}
+          <SideBySideView {image} />
+        </div>
       {:else if viewMode === 'swap'}
         <SwapView {image} />
       {:else if viewMode === 'slide'}
         <div class="flex flex-col gap-3">
+          {#if isBaselineOnly}
+            <div class="mx-auto max-w-2xl w-full rounded-md border border-info/40 bg-info/10 px-4 py-3 text-sm text-fg">
+              Baseline copied from the stored snapshot. Playwright did not emit a passed actual image for this comparison.
+            </div>
+          {/if}
           {#if image.actual && image.expect && image.diff}
             <SlideView actual={image.actual} expect={image.expect} diff={image.diff} />
           {:else if image.actual}
@@ -136,7 +157,14 @@
           {/if}
         </div>
       {:else if viewMode === 'blend'}
-        <BlendView {image} />
+        <div class="w-full flex flex-col gap-3">
+          {#if isBaselineOnly}
+            <div class="mx-auto max-w-2xl w-full rounded-md border border-info/40 bg-info/10 px-4 py-3 text-sm text-fg">
+              Baseline copied from the stored snapshot. Playwright did not emit a passed actual image for this comparison.
+            </div>
+          {/if}
+          <BlendView {image} />
+        </div>
       {/if}
     </div>
   </div>

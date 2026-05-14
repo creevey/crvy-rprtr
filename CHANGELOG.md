@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5] - 2026-05-14
+
+### Added
+
+- Classify passed visual assertions in report state
+- Emit declared visual names for screenshot steps
+- Refresh report state from disk changes
+- Label passed visual fallback states in ui
+
+### Documentation
+
+- Describe passed screenshot fallback modes
+
+### Fixed
+
+- **ci:** Checkout hooks submodule
+
+### Miscellaneous
+
+- Add you-lint-not-pass hook integration
+- Exclude hooks repo from root checks
 ## [0.0.4] - 2026-04-23
 
 ### Added

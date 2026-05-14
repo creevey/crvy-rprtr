@@ -93,6 +93,15 @@ When the server isn't running during tests, the reporter automatically falls bac
 - On test completion, a self-contained `crvy-rprtr.html` is written for direct browser review
 - When the server starts, it loads and merges all `crvy-rprtr-*.json` files from the offline report directory
 
+## Passed Screenshot Modes
+
+Crvy Rprtr keeps passed Playwright screenshot assertions visible in two fallback modes when Playwright does not emit a full passing comparison payload:
+
+- `baseline-only`: Crvy Rprtr copied the expected snapshot into the screenshot directory, so the UI can still show the stored baseline.
+- `declared-only`: the screenshot assertion was detected, but Playwright did not emit a passed artifact and no snapshot file could be resolved.
+
+When the server is running, Crvy Rprtr also refreshes the UI after report JSON or screenshot artifacts change on disk.
+
 ## Programmatic API
 
 ```ts

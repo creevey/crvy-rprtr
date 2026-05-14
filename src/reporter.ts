@@ -1,12 +1,11 @@
 import { mkdir, copyFile, writeFile } from 'fs/promises'
-import { join } from 'path'
+import { dirname, join } from 'path'
 
 import type { Reporter, FullConfig, Suite, TestCase, TestResult, FullResult } from '@playwright/test/reporter'
 import pLimit from 'p-limit'
 
 import { writeReportArtifact } from './report-artifact.ts'
-import { extractScreenshotNames } from './reporter-utils.ts'
-
+import { type AttachmentData, extractScreenshotDeclarations } from './reporter-utils.ts'
 const MAX_CONCURRENT_FILE_OPS = 5
 
 export interface CrvyRprtrOptions {
@@ -15,13 +14,6 @@ export interface CrvyRprtrOptions {
   offlineReportPath?: string
   reportHtmlPath?: string
 }
-
-interface AttachmentData {
-  name: string
-  path: string
-  contentType: string
-}
-
 export class CrvyRprtr implements Reporter {
   private ws: WebSocket | null = null
   private serverUrl: string
@@ -109,8 +101,10 @@ export class CrvyRprtr implements Reporter {
   }
 
   async onTestEnd(test: TestCase, result: TestResult): Promise<void> {
+    const screenshotDeclarations = extractScreenshotDeclarations(result.steps)
+    const visualNames = screenshotDeclarations.map(({ visualName }) => visualName)
     const savedAttachments = await this.saveAttachments(test.id, result)
-    await this.copySnapshotBaselines(test, result, savedAttachments)
+    await this.copySnapshotBaselines(test, result.status, screenshotDeclarations, savedAttachments)
 
     this.send({
       type: 'test-end',
@@ -119,6 +113,7 @@ export class CrvyRprtr implements Reporter {
         title: test.title,
         status: result.status,
         attachments: savedAttachments,
+        visualNames,
         error: result.errors.length > 0 ? result.errors[0]?.message : undefined,
         duration: result.duration,
       },
@@ -127,26 +122,34 @@ export class CrvyRprtr implements Reporter {
 
   private async copySnapshotBaselines(
     test: TestCase,
-    result: TestResult,
+    status: TestResult['status'],
+    screenshotDeclarations: ReadonlyArray<{ visualName: string; snapshotBaseName?: string }>,
     savedAttachments: AttachmentData[],
   ): Promise<void> {
-    if (result.status !== 'passed') return
-    const snapshotNames = extractScreenshotNames(result.steps)
-    if (snapshotNames.length === 0) return
+    if (status !== 'passed') return
 
-    const projectName = test.parent.project()?.name ?? 'chromium'
+    const namedDeclarations = screenshotDeclarations.filter(
+      (declaration): declaration is { visualName: string; snapshotBaseName: string } =>
+        declaration.snapshotBaseName !== undefined,
+    )
+    if (namedDeclarations.length === 0) return
+
+    const projectName = test.parent.project()?.name
     const snapshotDir = `${test.location.file}-snapshots`
     const testScreenshotDir = join(this.screenshotDir, this.sanitizeId(test.id))
     const limit = pLimit(MAX_CONCURRENT_FILE_OPS)
 
-    const copyPromises = snapshotNames.map((name) =>
+    const copyPromises = namedDeclarations.map(({ visualName, snapshotBaseName }) =>
       limit(async () => {
-        const baseName = name.replace(/\.png$/, '')
-        const snapshotPath = join(snapshotDir, `${baseName}-${projectName}-${process.platform}.png`)
-        const destName = `${baseName}-expected`
+        const destName = `${visualName}-expected.png`
         const destPath = join(testScreenshotDir, destName)
+        const snapshotPath =
+          projectName === ''
+            ? join(snapshotDir, `${snapshotBaseName}-${process.platform}.png`)
+            : join(snapshotDir, `${snapshotBaseName}-${projectName ?? 'chromium'}-${process.platform}.png`)
+
         try {
-          await mkdir(testScreenshotDir, { recursive: true })
+          await mkdir(dirname(destPath), { recursive: true })
           await copyFile(snapshotPath, destPath)
           savedAttachments.push({
             name: destName,
@@ -200,7 +203,6 @@ export class CrvyRprtr implements Reporter {
       )
 
     await Promise.all(attachmentPromises)
-
     return savedAttachments
   }
 
@@ -295,5 +297,4 @@ export class CrvyRprtr implements Reporter {
     }
   }
 }
-
 export default CrvyRprtr

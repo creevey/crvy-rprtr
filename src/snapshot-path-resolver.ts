@@ -33,6 +33,7 @@ export interface SnapshotResolverInput {
 export interface ResolvedBaselineTarget {
   readonly visualName: string
   readonly attachmentBaseName: string
+  readonly artifactBaseName: string
   readonly snapshotPath: string
 }
 
@@ -142,6 +143,7 @@ function resolveNamedTarget(
   return {
     visualName: declaration.visualName,
     attachmentBaseName: declaration.visualName,
+    artifactBaseName: sanitizeForFilePath(declaration.visualName),
     snapshotPath: applyTemplate(input, nameArgument, extension),
   }
 }

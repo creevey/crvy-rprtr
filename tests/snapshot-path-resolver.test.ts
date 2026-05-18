@@ -33,6 +33,7 @@ describe('resolveBaselineTargets', () => {
       {
         visualName: 'header',
         attachmentBaseName: 'header',
+        artifactBaseName: 'header',
         snapshotPath: join(TEST_DIR, 'example.spec.ts-snapshots', `header-chromium-${process.platform}.png`),
       },
     ])
@@ -64,20 +65,21 @@ describe('resolveBaselineTargets', () => {
       {
         visualName: 'header',
         attachmentBaseName: 'header',
+        artifactBaseName: 'header',
         snapshotPath: join(TEST_DIR, 'custom-snapshots', 'chromium', 'example.spec.ts', 'header.png'),
       },
     ])
   })
 
-  test('keeps the UI attachment base aligned with the declared visual name while sanitizing the snapshot path', () => {
+  test('keeps stable visual and attachment names while exposing a filesystem-safe artifact base', () => {
     const targets = resolveBaselineTargets({
       testFile: TEST_FILE,
       reporterTitlePath: REPORTER_TITLE_PATH,
       declarations: [
         {
-          visualName: 'header:mobile',
+          visualName: 'dir/header:mobile',
           kind: 'named',
-          declaredName: 'header:mobile',
+          declaredName: 'dir/header:mobile',
           occurrenceIndex: 1,
         },
       ],
@@ -92,9 +94,15 @@ describe('resolveBaselineTargets', () => {
 
     expect(targets).toEqual([
       {
-        visualName: 'header:mobile',
-        attachmentBaseName: 'header:mobile',
-        snapshotPath: join(TEST_DIR, 'example.spec.ts-snapshots', `header-mobile-chromium-${process.platform}.png`),
+        visualName: 'dir/header:mobile',
+        attachmentBaseName: 'dir/header:mobile',
+        artifactBaseName: 'dir-header-mobile',
+        snapshotPath: join(
+          TEST_DIR,
+          'example.spec.ts-snapshots',
+          'dir',
+          `header-mobile-chromium-${process.platform}.png`,
+        ),
       },
     ])
   })

@@ -17,16 +17,15 @@ export interface SnapshotResolverConfig {
   readonly toHaveScreenshotPathTemplate?: string
 }
 
-export interface NamedScreenshotDeclaration extends Pick<ScreenshotDeclaration, 'visualName'> {
+export interface NamedScreenshotDeclaration extends ScreenshotDeclaration {
   readonly kind: 'named'
   readonly declaredName: string
-  readonly occurrenceIndex: number
 }
 
 export interface SnapshotResolverInput {
   readonly testFile: string
   readonly reporterTitlePath: readonly string[]
-  readonly declarations: readonly NamedScreenshotDeclaration[]
+  readonly declarations: readonly ScreenshotDeclaration[]
   readonly config: SnapshotResolverConfig
   readonly snapshotPathExists?: (snapshotPath: string) => boolean
 }
@@ -148,9 +147,13 @@ function snapshotNameParts(declaredName: string): { readonly extension: string; 
   }
 }
 
+function filePathForOccurrence(filePath: string, occurrenceIndex: number): string {
+  return occurrenceIndex === 1 ? filePath : addSuffixToFilePath(filePath, `-${occurrenceIndex - 1}`)
+}
+
 function createResolvedBaselineTarget(
   input: SnapshotResolverInput,
-  declaration: NamedScreenshotDeclaration,
+  declaration: ScreenshotDeclaration,
   nameArgument: string,
   extension: string,
 ): ResolvedBaselineTarget {
@@ -167,7 +170,8 @@ function resolveStringCallTarget(
   declaration: NamedScreenshotDeclaration,
 ): ResolvedBaselineTarget {
   const { extension, filePath } = snapshotNameParts(declaration.declaredName)
-  const sanitizedNameWithExtension = sanitizeFilePathBeforeExtension(filePath, extension)
+  const occurrenceFilePath = filePathForOccurrence(filePath, declaration.occurrenceIndex)
+  const sanitizedNameWithExtension = sanitizeFilePathBeforeExtension(occurrenceFilePath, extension)
   const nameArgument = removeExtension(sanitizedNameWithExtension, extension)
 
   return createResolvedBaselineTarget(input, declaration, nameArgument, extension)
@@ -178,7 +182,8 @@ function resolveArrayCallTarget(
   declaration: NamedScreenshotDeclaration,
 ): ResolvedBaselineTarget {
   const { extension, filePath } = snapshotNameParts(declaration.declaredName)
-  const nameArgument = join(dirname(filePath), basename(filePath, extension))
+  const occurrenceFilePath = filePathForOccurrence(filePath, declaration.occurrenceIndex)
+  const nameArgument = join(dirname(occurrenceFilePath), basename(occurrenceFilePath, extension))
 
   return createResolvedBaselineTarget(input, declaration, nameArgument, extension)
 }
@@ -212,9 +217,37 @@ function resolveNamedTarget(
   return stringCallTargetExists ? stringCallTarget : arrayCallTarget
 }
 
+function reporterTitlesWithoutProjectAndFile(reporterTitlePath: readonly string[]): readonly string[] {
+  return reporterTitlePath.slice(3).filter((part) => part !== '')
+}
+
+function anonymousName(reporterTitlePath: readonly string[], occurrenceIndex: number): string {
+  const rawAnonymousName = `${reporterTitlesWithoutProjectAndFile(reporterTitlePath).join(' ')} ${occurrenceIndex}.png`
+  return sanitizeFilePathBeforeExtension(trimLongString(rawAnonymousName), '.png')
+}
+
+function isNamedDeclaration(declaration: ScreenshotDeclaration): declaration is NamedScreenshotDeclaration {
+  return declaration.kind === 'named' && declaration.declaredName !== undefined
+}
+
+function resolveTarget(
+  input: SnapshotResolverInput,
+  declaration: ScreenshotDeclaration,
+): ResolvedBaselineTarget | undefined {
+  if (isNamedDeclaration(declaration)) {
+    return resolveNamedTarget(input, declaration)
+  }
+
+  const anonymousFileName = anonymousName(input.reporterTitlePath, declaration.occurrenceIndex)
+  const extension = '.png'
+  const nameArgument = join(dirname(anonymousFileName), basename(anonymousFileName, extension))
+
+  return createResolvedBaselineTarget(input, declaration, nameArgument, extension)
+}
+
 export function resolveBaselineTargets(input: SnapshotResolverInput): ResolvedBaselineTarget[] {
   return input.declarations.flatMap((declaration) => {
-    const resolvedTarget = resolveNamedTarget(input, declaration)
+    const resolvedTarget = resolveTarget(input, declaration)
     return resolvedTarget === undefined ? [] : [resolvedTarget]
   })
 }

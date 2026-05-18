@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { join } from 'path'
+import { basename, join } from 'path'
 
 import { resolveBaselineTargets, sanitizeForFilePath } from '../src/snapshot-path-resolver'
 
@@ -106,6 +106,114 @@ describe('resolveBaselineTargets', () => {
         snapshotPath: join(TEST_DIR, 'example.spec.ts-snapshots', `header-mobile-chromium-${process.platform}.png`),
       },
     ])
+  })
+
+  test('uses occurrence indexes to resolve duplicate named screenshots to distinct baselines', () => {
+    const targets = resolveBaselineTargets({
+      testFile: TEST_FILE,
+      reporterTitlePath: REPORTER_TITLE_PATH,
+      declarations: [
+        {
+          visualName: 'header',
+          kind: 'named',
+          declaredName: 'header',
+          occurrenceIndex: 1,
+        },
+        {
+          visualName: 'header-1',
+          kind: 'named',
+          declaredName: 'header',
+          occurrenceIndex: 2,
+        },
+      ],
+      config: {
+        configDir: process.cwd(),
+        testDir: TEST_DIR,
+        snapshotDir: TEST_DIR,
+        projectName: 'chromium',
+        snapshotSuffix: process.platform,
+      },
+    })
+
+    expect(targets).toEqual([
+      {
+        visualName: 'header',
+        attachmentBaseName: 'header',
+        artifactBaseName: 'header',
+        snapshotPath: join(TEST_DIR, 'example.spec.ts-snapshots', `header-chromium-${process.platform}.png`),
+      },
+      {
+        visualName: 'header-1',
+        attachmentBaseName: 'header-1',
+        artifactBaseName: 'header-1',
+        snapshotPath: join(TEST_DIR, 'example.spec.ts-snapshots', `header-1-chromium-${process.platform}.png`),
+      },
+    ])
+  })
+
+  test('resolves an unnamed screenshot using Playwright anonymous naming rules', () => {
+    const targets = resolveBaselineTargets({
+      testFile: TEST_FILE,
+      reporterTitlePath: REPORTER_TITLE_PATH,
+      declarations: [
+        {
+          visualName: '__unnamed-screenshot-1',
+          kind: 'unnamed',
+          occurrenceIndex: 1,
+        },
+      ],
+      config: {
+        configDir: process.cwd(),
+        testDir: TEST_DIR,
+        snapshotDir: TEST_DIR,
+        projectName: 'chromium',
+        snapshotSuffix: process.platform,
+      },
+    } as Parameters<typeof resolveBaselineTargets>[0])
+
+    expect(targets).toEqual([
+      {
+        visualName: '__unnamed-screenshot-1',
+        attachmentBaseName: '__unnamed-screenshot-1',
+        artifactBaseName: '-unnamed-screenshot-1',
+        snapshotPath: join(
+          TEST_DIR,
+          'example.spec.ts-snapshots',
+          `Suite-visual-pass-1-chromium-${process.platform}.png`,
+        ),
+      },
+    ])
+  })
+
+  test('trims long unnamed screenshot titles with the same hash format Playwright uses', () => {
+    const target = resolveBaselineTargets({
+      testFile: TEST_FILE,
+      reporterTitlePath: [
+        '',
+        'chromium',
+        'example.spec.ts',
+        'A suite title that is intentionally very long to exercise trimming',
+        'and an equally long test title to force a hashed anonymous screenshot name',
+      ],
+      declarations: [
+        {
+          visualName: '__unnamed-screenshot-1',
+          kind: 'unnamed',
+          occurrenceIndex: 1,
+        },
+      ],
+      config: {
+        configDir: process.cwd(),
+        testDir: TEST_DIR,
+        snapshotDir: TEST_DIR,
+        projectName: 'chromium',
+        snapshotSuffix: process.platform,
+      },
+    } as Parameters<typeof resolveBaselineTargets>[0])[0]
+
+    expect(target).toBeDefined()
+    expect(basename(target!.snapshotPath)).toMatch(/-[0-9a-f]{5}-/)
+    expect(basename(target!.snapshotPath)).toEndWith(`-chromium-${process.platform}.png`)
   })
 
   test('returns no target for slash-containing names when no existence callback is provided', () => {

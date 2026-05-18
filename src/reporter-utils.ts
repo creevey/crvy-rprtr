@@ -6,7 +6,9 @@ const SYNTHETIC_SCREENSHOT_PREFIX = '__unnamed-screenshot-'
 
 export interface ScreenshotDeclaration {
   visualName: string
-  snapshotBaseName?: string
+  kind: 'named' | 'unnamed'
+  declaredName?: string
+  occurrenceIndex: number
 }
 
 export interface AttachmentData {
@@ -17,11 +19,23 @@ export interface AttachmentData {
 
 interface ExtractionState {
   readonly declarations: ScreenshotDeclaration[]
-  readonly seenVisualNames: Set<string>
+  readonly namedOccurrences: Map<string, number>
   nextUnnamedIndex: number
 }
 
-function normalizeNamedScreenshot(titleMatch: string): ScreenshotDeclaration | null {
+function addVisualSuffix(visualName: string, occurrenceIndex: number): string {
+  if (occurrenceIndex === 1) {
+    return visualName
+  }
+
+  const slashIndex = visualName.lastIndexOf('/')
+
+  return slashIndex === -1
+    ? `${visualName}-${occurrenceIndex - 1}`
+    : `${visualName.slice(0, slashIndex + 1)}${visualName.slice(slashIndex + 1)}-${occurrenceIndex - 1}`
+}
+
+function normalizeNamedScreenshot(titleMatch: string, state: ExtractionState): ScreenshotDeclaration | null {
   const unquotedName = titleMatch.trim().replace(/^['"`]|['"`]$/g, '')
 
   if (unquotedName === '') {
@@ -29,25 +43,21 @@ function normalizeNamedScreenshot(titleMatch: string): ScreenshotDeclaration | n
   }
 
   const normalizedPath = unquotedName.replace(/\\/g, '/')
-  const normalizedName = normalizedPath.replace(/\.png$/, '')
+  const declaredName = normalizedPath.replace(/\.png$/, '')
 
-  if (normalizedName === '') {
+  if (declaredName === '') {
     return null
   }
 
+  const occurrenceIndex = (state.namedOccurrences.get(declaredName) ?? 0) + 1
+  state.namedOccurrences.set(declaredName, occurrenceIndex)
+
   return {
-    visualName: normalizedName,
-    snapshotBaseName: normalizedName,
+    visualName: addVisualSuffix(declaredName, occurrenceIndex),
+    kind: 'named',
+    declaredName,
+    occurrenceIndex,
   }
-}
-
-function appendDeclaration(state: ExtractionState, declaration: ScreenshotDeclaration): void {
-  if (state.seenVisualNames.has(declaration.visualName)) {
-    return
-  }
-
-  state.seenVisualNames.add(declaration.visualName)
-  state.declarations.push(declaration)
 }
 
 function visitStep(step: TestStep, state: ExtractionState): boolean {
@@ -59,9 +69,9 @@ function visitStep(step: TestStep, state: ExtractionState): boolean {
 
   const namedMatch = step.title.match(NAMED_SCREENSHOT_STEP_TITLE)
   if (namedMatch?.[1] !== undefined) {
-    const declaration = normalizeNamedScreenshot(namedMatch[1])
+    const declaration = normalizeNamedScreenshot(namedMatch[1], state)
     if (declaration !== null) {
-      appendDeclaration(state, declaration)
+      state.declarations.push(declaration)
       return true
     }
   }
@@ -69,8 +79,11 @@ function visitStep(step: TestStep, state: ExtractionState): boolean {
   const hasNestedScreenshotDeclaration = state.declarations.length > declarationsBeforeChildren
 
   if (UNNAMED_SCREENSHOT_STEP_TITLE.test(step.title) && !hasNestedScreenshotDeclaration) {
-    appendDeclaration(state, {
-      visualName: `${SYNTHETIC_SCREENSHOT_PREFIX}${state.nextUnnamedIndex}`,
+    const occurrenceIndex = state.nextUnnamedIndex
+    state.declarations.push({
+      visualName: `${SYNTHETIC_SCREENSHOT_PREFIX}${occurrenceIndex}`,
+      kind: 'unnamed',
+      occurrenceIndex,
     })
     state.nextUnnamedIndex += 1
     return true
@@ -82,7 +95,7 @@ function visitStep(step: TestStep, state: ExtractionState): boolean {
 export function extractScreenshotDeclarations(steps: readonly TestStep[]): ScreenshotDeclaration[] {
   const state: ExtractionState = {
     declarations: [],
-    seenVisualNames: new Set<string>(),
+    namedOccurrences: new Map(),
     nextUnnamedIndex: 1,
   }
 

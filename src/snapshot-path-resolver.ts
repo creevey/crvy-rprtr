@@ -28,6 +28,7 @@ export interface SnapshotResolverInput {
   readonly reporterTitlePath: readonly string[]
   readonly declarations: readonly NamedScreenshotDeclaration[]
   readonly config: SnapshotResolverConfig
+  readonly snapshotPathExists?: (snapshotPath: string) => boolean
 }
 
 export interface ResolvedBaselineTarget {
@@ -51,9 +52,27 @@ function isUnsafeFilePathCharacter(character: string): boolean {
 }
 
 function sanitizeForFilePath(value: string): string {
-  return Array.from(value)
-    .map((character) => (isUnsafeFilePathCharacter(character) ? '-' : character))
-    .join('')
+  return Array.from(value).reduce(
+    (state, character) => {
+      const unsafeCharacter = isUnsafeFilePathCharacter(character)
+
+      return unsafeCharacter
+        ? state.previousCharacterWasUnsafe
+          ? state
+          : {
+              value: `${state.value}-`,
+              previousCharacterWasUnsafe: true,
+            }
+        : {
+            value: `${state.value}${character}`,
+            previousCharacterWasUnsafe: false,
+          }
+    },
+    {
+      value: '',
+      previousCharacterWasUnsafe: false,
+    },
+  ).value
 }
 
 function trimLongString(value: string, length = WINDOWS_FILESYSTEM_FRIENDLY_LENGTH): string {
@@ -117,29 +136,24 @@ function applyTemplate(input: SnapshotResolverInput, nameArgument: string, exten
   return resolve(input.config.configDir, snapshotPath)
 }
 
-function sanitizeNamedPathBeforeExtension(filePath: string, extension = extname(filePath)): string {
-  const fileName = basename(filePath)
-  const directory = dirname(filePath)
-  const sanitizedFileName = sanitizeFilePathBeforeExtension(fileName, extension)
-
-  return directory === '.' ? sanitizedFileName : join(directory, sanitizedFileName)
-}
-
 function removeExtension(filePath: string, extension = extname(filePath)): string {
   return filePath.slice(0, filePath.length - extension.length)
 }
 
-function resolveNamedTarget(
+function snapshotNameParts(declaredName: string): { readonly extension: string; readonly filePath: string } {
+  const extension = extname(declaredName) || '.png'
+  return {
+    extension,
+    filePath: extname(declaredName) === '' ? `${declaredName}${extension}` : declaredName,
+  }
+}
+
+function createResolvedBaselineTarget(
   input: SnapshotResolverInput,
   declaration: NamedScreenshotDeclaration,
+  nameArgument: string,
+  extension: string,
 ): ResolvedBaselineTarget {
-  const extension = '.png'
-  const sanitizedNameWithExtension = sanitizeNamedPathBeforeExtension(
-    `${declaration.declaredName}${extension}`,
-    extension,
-  )
-  const nameArgument = removeExtension(sanitizedNameWithExtension, extension)
-
   return {
     visualName: declaration.visualName,
     attachmentBaseName: declaration.visualName,
@@ -148,8 +162,61 @@ function resolveNamedTarget(
   }
 }
 
+function resolveStringCallTarget(
+  input: SnapshotResolverInput,
+  declaration: NamedScreenshotDeclaration,
+): ResolvedBaselineTarget {
+  const { extension, filePath } = snapshotNameParts(declaration.declaredName)
+  const sanitizedNameWithExtension = sanitizeFilePathBeforeExtension(filePath, extension)
+  const nameArgument = removeExtension(sanitizedNameWithExtension, extension)
+
+  return createResolvedBaselineTarget(input, declaration, nameArgument, extension)
+}
+
+function resolveArrayCallTarget(
+  input: SnapshotResolverInput,
+  declaration: NamedScreenshotDeclaration,
+): ResolvedBaselineTarget {
+  const { extension, filePath } = snapshotNameParts(declaration.declaredName)
+  const nameArgument = join(dirname(filePath), basename(filePath, extension))
+
+  return createResolvedBaselineTarget(input, declaration, nameArgument, extension)
+}
+
+function resolveNamedTarget(
+  input: SnapshotResolverInput,
+  declaration: NamedScreenshotDeclaration,
+): ResolvedBaselineTarget | undefined {
+  if (!declaration.declaredName.includes('/')) {
+    return resolveStringCallTarget(input, declaration)
+  }
+
+  const stringCallTarget = resolveStringCallTarget(input, declaration)
+  const arrayCallTarget = resolveArrayCallTarget(input, declaration)
+
+  if (stringCallTarget.snapshotPath === arrayCallTarget.snapshotPath) {
+    return stringCallTarget
+  }
+
+  if (input.snapshotPathExists === undefined) {
+    return undefined
+  }
+
+  const stringCallTargetExists = input.snapshotPathExists(stringCallTarget.snapshotPath)
+  const arrayCallTargetExists = input.snapshotPathExists(arrayCallTarget.snapshotPath)
+
+  if (stringCallTargetExists === arrayCallTargetExists) {
+    return undefined
+  }
+
+  return stringCallTargetExists ? stringCallTarget : arrayCallTarget
+}
+
 export function resolveBaselineTargets(input: SnapshotResolverInput): ResolvedBaselineTarget[] {
-  return input.declarations.map((declaration) => resolveNamedTarget(input, declaration))
+  return input.declarations.flatMap((declaration) => {
+    const resolvedTarget = resolveNamedTarget(input, declaration)
+    return resolvedTarget === undefined ? [] : [resolvedTarget]
+  })
 }
 
 export { sanitizeForFilePath, trimLongString, sanitizeFilePathBeforeExtension, addSuffixToFilePath }

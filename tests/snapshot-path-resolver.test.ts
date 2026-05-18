@@ -68,4 +68,34 @@ describe('resolveBaselineTargets', () => {
       },
     ])
   })
+
+  test('sanitizes named screenshot strings before template expansion and output naming', () => {
+    const targets = resolveBaselineTargets({
+      testFile: TEST_FILE,
+      reporterTitlePath: REPORTER_TITLE_PATH,
+      declarations: [
+        {
+          visualName: 'header:mobile',
+          kind: 'named',
+          declaredName: 'header:mobile',
+          occurrenceIndex: 1,
+        },
+      ],
+      config: {
+        configDir: process.cwd(),
+        testDir: TEST_DIR,
+        snapshotDir: TEST_DIR,
+        projectName: 'chromium',
+        snapshotSuffix: process.platform,
+      },
+    })
+
+    expect(targets).toEqual([
+      {
+        visualName: 'header:mobile',
+        attachmentBaseName: 'header-mobile',
+        snapshotPath: join(TEST_DIR, 'example.spec.ts-snapshots', `header-mobile-chromium-${process.platform}.png`),
+      },
+    ])
+  })
 })

@@ -17,18 +17,16 @@ export interface SnapshotResolverConfig {
   readonly toHaveScreenshotPathTemplate?: string
 }
 
-interface NamedScreenshotDeclaration extends ScreenshotDeclaration {
+export interface NamedScreenshotDeclaration extends Pick<ScreenshotDeclaration, 'visualName'> {
   readonly kind: 'named'
   readonly declaredName: string
   readonly occurrenceIndex: number
 }
 
-type SnapshotResolverDeclaration = ScreenshotDeclaration | NamedScreenshotDeclaration
-
 export interface SnapshotResolverInput {
   readonly testFile: string
   readonly reporterTitlePath: readonly string[]
-  readonly declarations: readonly SnapshotResolverDeclaration[]
+  readonly declarations: readonly NamedScreenshotDeclaration[]
   readonly config: SnapshotResolverConfig
 }
 
@@ -118,40 +116,42 @@ function applyTemplate(input: SnapshotResolverInput, nameArgument: string, exten
   return resolve(input.config.configDir, snapshotPath)
 }
 
+function sanitizeNamedPathBeforeExtension(filePath: string, extension = extname(filePath)): string {
+  const fileName = basename(filePath)
+  const directory = dirname(filePath)
+  const sanitizedFileName = sanitizeFilePathBeforeExtension(fileName, extension)
+
+  return directory === '.' ? sanitizedFileName : join(directory, sanitizedFileName)
+}
+
+function removeExtension(filePath: string, extension = extname(filePath)): string {
+  return filePath.slice(0, filePath.length - extension.length)
+}
+
 function resolveNamedTarget(
   input: SnapshotResolverInput,
   declaration: NamedScreenshotDeclaration,
 ): ResolvedBaselineTarget {
   const extension = '.png'
-  const nameWithExtension = `${declaration.declaredName}${extension}`
+  const sanitizedNameWithExtension = sanitizeNamedPathBeforeExtension(
+    `${declaration.declaredName}${extension}`,
+    extension,
+  )
   const relativeOutputPath =
     declaration.occurrenceIndex === 1
-      ? nameWithExtension
-      : addSuffixToFilePath(nameWithExtension, `-${declaration.occurrenceIndex - 1}`)
-  const nameArgument = join(dirname(declaration.declaredName), basename(relativeOutputPath, extension))
+      ? sanitizedNameWithExtension
+      : addSuffixToFilePath(sanitizedNameWithExtension, `-${declaration.occurrenceIndex - 1}`)
+  const nameArgument = removeExtension(sanitizedNameWithExtension, extension)
 
   return {
     visualName: declaration.visualName,
-    attachmentBaseName: declaration.visualName,
+    attachmentBaseName: removeExtension(relativeOutputPath, extension),
     snapshotPath: applyTemplate(input, nameArgument, extension),
   }
 }
 
-function isNamedScreenshotDeclaration(
-  declaration: SnapshotResolverDeclaration,
-): declaration is NamedScreenshotDeclaration {
-  return (
-    'kind' in declaration &&
-    declaration.kind === 'named' &&
-    'declaredName' in declaration &&
-    typeof declaration.declaredName === 'string'
-  )
-}
-
 export function resolveBaselineTargets(input: SnapshotResolverInput): ResolvedBaselineTarget[] {
-  return input.declarations
-    .filter(isNamedScreenshotDeclaration)
-    .map((declaration) => resolveNamedTarget(input, declaration))
+  return input.declarations.map((declaration) => resolveNamedTarget(input, declaration))
 }
 
 export { sanitizeForFilePath, trimLongString, sanitizeFilePathBeforeExtension, addSuffixToFilePath }

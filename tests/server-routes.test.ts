@@ -452,6 +452,68 @@ describe('approval routing', () => {
     expect(tests['test-ambiguous']?.approved).toBeUndefined()
   })
 
+  test('approve ignores GET and DELETE requests without mutating approval state or files', async () => {
+    const assertApproveMethodDoesNotMutate = async (method: 'GET' | 'DELETE'): Promise<void> => {
+      const testId = `test-${method.toLowerCase()}`
+      const baselinePath = join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts', 'header.png')
+
+      await mkdir(join(SCREENSHOT_DIR, testId), { recursive: true })
+      await mkdir(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts'), { recursive: true })
+      await writeFile(join(SCREENSHOT_DIR, testId, 'header-actual.png'), `${method} actual image`)
+      await writeFile(baselinePath, `${method} baseline image`)
+
+      const tests: Record<string, TestData> = {
+        [testId]: {
+          id: testId,
+          title: 'visual pass',
+          titlePath: ['Suite'],
+          browser: 'chromium',
+          location: { file: TEST_FILE, line: 10 },
+          results: [
+            {
+              status: 'failed',
+              retries: 0,
+              images: {
+                header: {
+                  actual: `/screenshots/${testId}/header-actual.png`,
+                },
+              },
+              visualDeclarations: [
+                {
+                  visualName: 'header',
+                  kind: 'named',
+                  declaredName: 'header',
+                  snapshotBaseName: 'header',
+                  occurrenceIndex: 1,
+                },
+              ],
+            },
+          ],
+        },
+      }
+
+      const response = await handleHttpRequest(
+        {
+          ...createContext(tests),
+          saveReport: (): Promise<void> =>
+            Promise.reject(new Error('saveReport should not be called for non-POST approve requests')),
+        },
+        new Request('http://localhost/api/approve', {
+          method,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id: testId, retry: 0, image: 'header' }),
+        }),
+      )
+
+      expect(response.status).toBe(404)
+      expect(await readFile(baselinePath, 'utf-8')).toBe(`${method} baseline image`)
+      expect(tests[testId]?.approved).toBeUndefined()
+    }
+
+    await assertApproveMethodDoesNotMutate('GET')
+    await assertApproveMethodDoesNotMutate('DELETE')
+  })
+
   test('approve-all ignores GET requests without mutating approval state or files', async () => {
     await mkdir(join(SCREENSHOT_DIR, 'test-success'), { recursive: true })
     await mkdir(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts'), { recursive: true })

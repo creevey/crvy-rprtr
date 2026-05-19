@@ -233,7 +233,7 @@ export function handleHttpRequest(ctx: RoutesContext, req: Request): Promise<Res
     return Promise.resolve(handleApiReport(ctx))
   }
 
-  if (pathname === '/api/approve') {
+  if (pathname === '/api/approve' && req.method === 'POST') {
     return handleApiApprove(ctx, req)
   }
 

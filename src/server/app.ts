@@ -35,6 +35,9 @@ export interface ServerOptions {
   reportPath?: string
   /** Absolute path to the built web UI assets directory, or its parent directory */
   staticDir?: string
+  playwrightSnapshotDir?: string
+  playwrightSnapshotPathTemplate?: string
+  playwrightToHaveScreenshotPathTemplate?: string
 }
 
 interface ReportData {
@@ -226,6 +229,25 @@ async function resolveReportPath(reportPath: string): Promise<{ reportFile: stri
   return { reportFile: reportPath, offlineReportDir: dirname(reportPath) }
 }
 
+function createRoutesContext(
+  reportData: ReportData,
+  staticDir: string,
+  saveReport: () => Promise<void>,
+  options: ServerOptions,
+): RoutesContext {
+  return {
+    reportData,
+    staticDir,
+    saveReport,
+    approvalRouting: {
+      configDir: process.cwd(),
+      playwrightSnapshotDir: options.playwrightSnapshotDir,
+      playwrightSnapshotPathTemplate: options.playwrightSnapshotPathTemplate,
+      playwrightToHaveScreenshotPathTemplate: options.playwrightToHaveScreenshotPathTemplate,
+    },
+  }
+}
+
 export async function createServerApp(options: ServerOptions = {}): Promise<ServerApp> {
   const port = options.port ?? 3000
   const reportData = createReportData(options)
@@ -239,11 +261,7 @@ export async function createServerApp(options: ServerOptions = {}): Promise<Serv
     await writeJsonFile(reportFile, reportData)
   }
 
-  const routesContext: RoutesContext = {
-    reportData,
-    staticDir,
-    saveReport,
-  }
+  const routesContext = createRoutesContext(reportData, staticDir, saveReport, options)
 
   const getHandlerContext = (): HandlerContext => createHandlerContext(reportData, wsClients, currentRunIds, saveReport)
   const handleRequest = (req: Request): Promise<Response> => handleHttpRequest(routesContext, req)

@@ -1,6 +1,8 @@
-import { join } from 'path'
+import { existsSync } from 'fs'
+import { dirname, join } from 'path'
 
 import { ApproveRequestBodySchema, safeParse } from '../schemas.ts'
+import { resolveBaselineTargets } from '../snapshot-path-resolver.ts'
 import type { TestData } from '../types.ts'
 import { copyFilePortable, respondWithFile } from './file-utils.ts'
 
@@ -14,6 +16,12 @@ export interface RoutesContext {
   }
   staticDir: string
   saveReport: () => Promise<void>
+  approvalRouting?: {
+    configDir: string
+    playwrightSnapshotDir?: string
+    playwrightSnapshotPathTemplate?: string
+    playwrightToHaveScreenshotPathTemplate?: string
+  }
 }
 
 export const LIVE_UPDATES_WEBSOCKET_PATH = '/'
@@ -52,6 +60,46 @@ function handleApiReport(ctx: RoutesContext): Response {
   return Response.json(ctx.reportData)
 }
 
+const APPROVAL_TARGET_ERROR = 'Could not resolve approval target'
+
+function actualPathFromUrl(ctx: RoutesContext, actualUrl: string): string {
+  return actualUrl.startsWith('/screenshots/')
+    ? join(ctx.reportData.screenshotDir, actualUrl.slice('/screenshots/'.length))
+    : actualUrl
+}
+
+function reporterTitlePath(test: TestData): readonly string[] {
+  const testFile = test.location?.file
+  return ['', test.browser, testFile ?? '', ...test.titlePath, test.title]
+}
+
+function resolveApprovalTarget(ctx: RoutesContext, test: TestData, retry: number, imageName: string): string | null {
+  const testFile = test.location?.file
+  const declaration = test.results?.[retry]?.visualDeclarations?.find((candidate) => candidate.visualName === imageName)
+
+  if (ctx.approvalRouting === undefined || testFile === undefined || declaration === undefined) {
+    return null
+  }
+
+  const targets = resolveBaselineTargets({
+    testFile,
+    reporterTitlePath: reporterTitlePath(test),
+    declarations: [declaration],
+    config: {
+      configDir: ctx.approvalRouting.configDir,
+      testDir: dirname(testFile),
+      snapshotDir: ctx.approvalRouting.playwrightSnapshotDir ?? dirname(testFile),
+      projectName: test.browser,
+      snapshotSuffix: process.platform,
+      snapshotPathTemplate: ctx.approvalRouting.playwrightSnapshotPathTemplate,
+      toHaveScreenshotPathTemplate: ctx.approvalRouting.playwrightToHaveScreenshotPathTemplate,
+    },
+    snapshotPathExists: existsSync,
+  })
+
+  return targets.length === 1 ? (targets[0]?.snapshotPath ?? null) : null
+}
+
 async function handleApiApprove(ctx: RoutesContext, req: Request): Promise<Response> {
   try {
     const rawBody: unknown = await req.json()
@@ -63,33 +111,32 @@ async function handleApiApprove(ctx: RoutesContext, req: Request): Promise<Respo
     const { id, retry, image } = parsed
 
     const test = ctx.reportData.tests[id]
-    if (test !== null && test !== undefined) {
-      test.approved ??= {}
-      test.approved[image] = retry
-      await ctx.saveReport()
-
-      const actualUrl = test.results?.[retry]?.images?.[image]?.actual
-      if (
-        actualUrl !== null &&
-        actualUrl !== undefined &&
-        test.location?.file !== null &&
-        test.location?.file !== undefined
-      ) {
-        const actualPath = actualUrl.replace('/screenshots/', `${ctx.reportData.screenshotDir}/`)
-        const snapshotPath = `${test.location.file}-snapshots/${image}-${test.browser}-${process.platform}.png`
-        try {
-          await copyFilePortable(actualPath, snapshotPath)
-          console.log(`  ✔ Updated baseline: ${snapshotPath}`)
-        } catch (err: unknown) {
-          const errorMsg = err instanceof Error ? err.message : String(err)
-          console.error(`  ✗ Failed to update baseline: ${errorMsg}`)
-        }
-      }
-
-      console.log(`  ✔ Approved [${test.browser}] ${test.title} — ${image}`)
+    if (test === undefined) {
+      return Response.json({ success: false, error: 'Test not found' }, { status: 404 })
     }
 
-    return Response.json({ success: true })
+    const actualUrl = test.results?.[retry]?.images?.[image]?.actual
+    if (actualUrl === undefined) {
+      return Response.json({ success: false, error: 'Actual image not found' }, { status: 409 })
+    }
+
+    const snapshotPath = resolveApprovalTarget(ctx, test, retry, image)
+    if (snapshotPath === null) {
+      return Response.json({ success: false, error: APPROVAL_TARGET_ERROR }, { status: 409 })
+    }
+
+    try {
+      await copyFilePortable(actualPathFromUrl(ctx, actualUrl), snapshotPath)
+      test.approved = { ...(test.approved ?? {}), [image]: retry }
+      await ctx.saveReport()
+      console.log(`  ✔ Updated baseline: ${snapshotPath}`)
+      console.log(`  ✔ Approved [${test.browser}] ${test.title} — ${image}`)
+      return Response.json({ success: true })
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      console.error(`  ✗ Failed to update baseline: ${errorMsg}`)
+      return Response.json({ success: false, error: 'Failed to update baseline' }, { status: 500 })
+    }
   } catch {
     return Response.json({ success: false, error: 'Invalid request' }, { status: 400 })
   }
@@ -97,44 +144,43 @@ async function handleApiApprove(ctx: RoutesContext, req: Request): Promise<Respo
 
 async function handleApiApproveAll(ctx: RoutesContext): Promise<Response> {
   let approvedCount = 0
-  const baselineUpdates: Promise<void>[] = []
 
-  Object.values(ctx.reportData.tests).forEach((test) => {
-    if (!test?.results) return
-    const approved: Record<string, number> = {}
+  const baselineUpdates = Object.values(ctx.reportData.tests).flatMap((test) => {
+    if (!test.results || test.results.length === 0) {
+      return []
+    }
+
     const lastRetry = test.results.length - 1
     const lastResult = test.results[lastRetry]
-    if (!lastResult?.images) return
-    Object.keys(lastResult.images).forEach((imageName) => {
-      approved[imageName] = lastRetry
-      approvedCount++
+    if (!lastResult?.images) {
+      return []
+    }
 
+    return Object.keys(lastResult.images).flatMap((imageName) => {
       const actualUrl = lastResult.images?.[imageName]?.actual
-      if (
-        actualUrl !== null &&
-        actualUrl !== undefined &&
-        test.location?.file !== null &&
-        test.location?.file !== undefined
-      ) {
-        const actualPath = actualUrl.replace('/screenshots/', `${ctx.reportData.screenshotDir}/`)
-        const snapshotPath = `${test.location.file}-snapshots/${imageName}-${test.browser}-${process.platform}.png`
-        baselineUpdates.push(
-          copyFilePortable(actualPath, snapshotPath)
-            .then(() => {
-              console.log(`  ✔ Updated baseline: ${snapshotPath}`)
-            })
-            .catch((err: unknown) => {
-              const errorMsg = err instanceof Error ? err.message : String(err)
-              console.error(`  ✗ Failed to update baseline: ${errorMsg}`)
-            }),
-        )
+      const snapshotPath = resolveApprovalTarget(ctx, test, lastRetry, imageName)
+
+      if (actualUrl === undefined || snapshotPath === null) {
+        return []
       }
+
+      return [
+        copyFilePortable(actualPathFromUrl(ctx, actualUrl), snapshotPath)
+          .then(() => {
+            approvedCount += 1
+            test.approved = { ...(test.approved ?? {}), [imageName]: lastRetry }
+            console.log(`  ✔ Updated baseline: ${snapshotPath}`)
+          })
+          .catch((err: unknown) => {
+            const errorMsg = err instanceof Error ? err.message : String(err)
+            console.error(`  ✗ Failed to update baseline: ${errorMsg}`)
+          }),
+      ]
     })
-    test.approved = approved
   })
 
-  await ctx.saveReport()
   await Promise.all(baselineUpdates)
+  await ctx.saveReport()
   console.log(`  ✔ Approved all — ${approvedCount} image(s)`)
   return Response.json({ success: true })
 }

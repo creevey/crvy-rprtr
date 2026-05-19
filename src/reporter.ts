@@ -185,13 +185,14 @@ export class CrvyRprtr implements Reporter {
     target: ResolvedBaselineTarget,
     savedAttachments: AttachmentData[],
   ): Promise<void> {
-    const destName = `${target.attachmentBaseName}-expected.png`
-    const destPath = join(testScreenshotDir, destName)
+    const attachmentName = `${target.attachmentBaseName}-expected.png`
+    const artifactName = `${target.artifactBaseName}-expected.png`
+    const destPath = join(testScreenshotDir, artifactName)
 
     try {
       await mkdir(dirname(destPath), { recursive: true })
       await copyFile(target.snapshotPath, destPath)
-      savedAttachments.push({ name: destName, path: `${safeTestId}/${destName}`, contentType: 'image/png' })
+      savedAttachments.push({ name: attachmentName, path: `${safeTestId}/${artifactName}`, contentType: 'image/png' })
       console.log(`[CrvyRprtr] Attached baseline: ${target.snapshotPath}`)
     } catch {
       // keep declared-only when no exact baseline exists

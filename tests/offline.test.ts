@@ -437,7 +437,7 @@ describe('Offline Mode', () => {
     expect(testEndMessage!.data.attachments).toMatchObject([
       {
         name: '__unnamed-screenshot-1-expected.png',
-        path: 'test-visual-unnamed-copy/__unnamed-screenshot-1-expected.png',
+        path: 'test-visual-unnamed-copy/-unnamed-screenshot-1-expected.png',
       },
     ])
   })
@@ -552,9 +552,70 @@ describe('Offline Mode', () => {
     ).toMatchObject([
       {
         name: 'dir/header-expected.png',
-        path: 'test-visual-nested-copy/dir/header-expected.png',
+        path: 'test-visual-nested-copy/dir-header-expected.png',
       },
     ])
+  })
+
+  test('uses a filesystem-safe copied baseline path for slash-named screenshots with unsafe last segments', async () => {
+    const { CrvyRprtr } = await import('../src/reporter')
+
+    const reporter = new CrvyRprtr({
+      screenshotDir: TEST_SCREENSHOT_DIR,
+      reportHtmlPath: TEST_ARTIFACT_PATH,
+    })
+
+    await mkdir(join(TEST_SNAPSHOT_DIR, 'dir'), { recursive: true })
+    await writeFile(join(TEST_SNAPSHOT_DIR, 'dir', `header:mobile-chromium-${process.platform}.png`), 'baseline image')
+
+    const sent: unknown[] = []
+
+    type TestReporter = {
+      send: (message: unknown) => void
+      onTestEnd: (test: object, result: object) => Promise<void>
+    }
+
+    const reporterAny = reporter as unknown as TestReporter
+    reporterAny.send = (message: unknown): void => {
+      sent.push(message)
+    }
+
+    await reporterAny.onTestEnd(
+      {
+        id: 'test-visual-nested-unsafe-copy',
+        title: 'visual pass',
+        location: { file: TEST_FILE, line: 10 },
+        parent: {
+          project: () => createProject('chromium'),
+        },
+      },
+      {
+        status: 'passed',
+        errors: [],
+        duration: 100,
+        attachments: [],
+        steps: [
+          {
+            title: 'outer step',
+            steps: [{ title: 'Expect "toHaveScreenshot(dir/header:mobile.png)"', steps: [] }],
+          },
+        ],
+      },
+    )
+
+    expect(sent).toHaveLength(1)
+    expect((sent[0] as { data: { visualNames: string[] } }).data.visualNames).toEqual(['dir/header:mobile'])
+    expect(
+      (sent[0] as { data: { attachments: Array<{ name: string; path: string }> } }).data.attachments,
+    ).toMatchObject([
+      {
+        name: 'dir/header:mobile-expected.png',
+        path: 'test-visual-nested-unsafe-copy/dir-header-mobile-expected.png',
+      },
+    ])
+    expect(
+      existsSync(join(TEST_SCREENSHOT_DIR, 'test-visual-nested-unsafe-copy', 'dir-header-mobile-expected.png')),
+    ).toBe(true)
   })
 
   test('normalizes Windows-style screenshot names to forward slashes in offline attachments', async () => {
@@ -610,7 +671,7 @@ describe('Offline Mode', () => {
     ).toMatchObject([
       {
         name: 'dir/header-expected.png',
-        path: 'test-visual-windows-nested-copy/dir/header-expected.png',
+        path: 'test-visual-windows-nested-copy/dir-header-expected.png',
       },
     ])
   })

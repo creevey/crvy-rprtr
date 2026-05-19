@@ -452,6 +452,54 @@ describe('approval routing', () => {
     expect(tests['test-ambiguous']?.approved).toBeUndefined()
   })
 
+  test('approve-all ignores GET requests without mutating approval state or files', async () => {
+    await mkdir(join(SCREENSHOT_DIR, 'test-success'), { recursive: true })
+    await mkdir(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts'), { recursive: true })
+    await writeFile(join(SCREENSHOT_DIR, 'test-success', 'header-actual.png'), 'actual image')
+    await writeFile(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts', 'header.png'), 'baseline image')
+
+    const tests: Record<string, TestData> = {
+      'test-success': {
+        id: 'test-success',
+        title: 'visual pass',
+        titlePath: ['Suite'],
+        browser: 'chromium',
+        location: { file: TEST_FILE, line: 10 },
+        results: [
+          {
+            status: 'failed',
+            retries: 0,
+            images: {
+              header: {
+                actual: '/screenshots/test-success/header-actual.png',
+              },
+            },
+            visualDeclarations: [
+              {
+                visualName: 'header',
+                kind: 'named',
+                declaredName: 'header',
+                snapshotBaseName: 'header',
+                occurrenceIndex: 1,
+              },
+            ],
+          },
+        ],
+      },
+    }
+
+    const response = await handleHttpRequest(
+      createContext(tests),
+      new Request('http://localhost/api/approve-all', { method: 'GET' }),
+    )
+
+    expect(response.status).toBe(404)
+    expect(await readFile(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts', 'header.png'), 'utf-8')).toBe(
+      'baseline image',
+    )
+    expect(tests['test-success']?.approved).toBeUndefined()
+  })
+
   test('approve-all uses exact resolver targets and skips unresolved images', async () => {
     await mkdir(join(SCREENSHOT_DIR, 'test-success'), { recursive: true })
     await mkdir(join(SCREENSHOT_DIR, 'test-ambiguous'), { recursive: true })

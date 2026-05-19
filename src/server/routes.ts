@@ -237,7 +237,7 @@ export function handleHttpRequest(ctx: RoutesContext, req: Request): Promise<Res
     return handleApiApprove(ctx, req)
   }
 
-  if (pathname === '/api/approve-all') {
+  if (pathname === '/api/approve-all' && req.method === 'POST') {
     return handleApiApproveAll(ctx)
   }
 

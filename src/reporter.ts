@@ -8,15 +8,19 @@ import pLimit from 'p-limit'
 import { writeReportArtifact } from './report-artifact.ts'
 import { type AttachmentData, extractScreenshotDeclarations } from './reporter-utils.ts'
 import { resolveBaselineTargets } from './snapshot-path-resolver.ts'
-
 const MAX_CONCURRENT_FILE_OPS = 5
-
+const SAFE_ARTIFACT_PATH_SEGMENT_CHARACTER = /^[A-Za-z0-9._-]$/
 type RunEvent = { type: 'test-begin' | 'test-end' | 'run-end'; data: unknown }
-
+type ScreenshotDeclarations = ReturnType<typeof extractScreenshotDeclarations>
 type TestMetadata = { reporterTitlePath: string[] }
-
+type BaselineResolverInput = Parameters<typeof resolveBaselineTargets>[0]
 type ResolvedBaselineTarget = ReturnType<typeof resolveBaselineTargets>[number]
-
+const encodeArtifactPathSegment = (segment: string): string =>
+  Array.from(segment, (character) =>
+    SAFE_ARTIFACT_PATH_SEGMENT_CHARACTER.test(character) ? character : encodeURIComponent(character),
+  ).join('')
+const copiedBaselineArtifactPath = (attachmentName: string): string =>
+  attachmentName.split('/').map(encodeArtifactPathSegment).join('/')
 export interface CrvyRprtrOptions {
   serverUrl?: string
   screenshotDir?: string
@@ -26,7 +30,6 @@ export interface CrvyRprtrOptions {
   playwrightSnapshotPathTemplate?: string
   playwrightToHaveScreenshotPathTemplate?: string
 }
-
 export class CrvyRprtr implements Reporter {
   private ws: WebSocket | null = null
   private serverUrl: string
@@ -43,7 +46,6 @@ export class CrvyRprtr implements Reporter {
   private isOfflineMode = false
   private hadOfflineMode = false
   private runEvents: RunEvent[] = []
-
   constructor(options: CrvyRprtrOptions = {}) {
     this.serverUrl = options.serverUrl ?? 'ws://localhost:3000'
     this.screenshotDir = options.screenshotDir ?? './screenshots'
@@ -54,14 +56,12 @@ export class CrvyRprtr implements Reporter {
     this.playwrightSnapshotPathTemplate = options.playwrightSnapshotPathTemplate
     this.playwrightToHaveScreenshotPathTemplate = options.playwrightToHaveScreenshotPathTemplate
   }
-
   async onBegin(config: FullConfig, suite: Suite): Promise<void> {
     this.configDir = config.configFile === undefined ? config.rootDir : dirname(config.configFile)
     console.log(`[CrvyRprtr] Starting run with ${suite.allTests().length} tests`)
     await mkdir(this.screenshotDir, { recursive: true })
     this.connect()
   }
-
   private connect(): void {
     const WebSocketConstructor = globalThis.WebSocket
     if (typeof WebSocketConstructor !== 'function') {
@@ -69,7 +69,6 @@ export class CrvyRprtr implements Reporter {
       this.enableOfflineMode()
       return
     }
-
     try {
       this.ws = new WebSocketConstructor(this.serverUrl)
       this.ws.onopen = (): void => {
@@ -91,47 +90,38 @@ export class CrvyRprtr implements Reporter {
       this.enableOfflineMode()
     }
   }
-
   private enableOfflineMode(): void {
     if (this.isOfflineMode) return
-    this.isOfflineMode = true
-    this.hadOfflineMode = true
+    this.isOfflineMode = this.hadOfflineMode = true
     console.log('[CrvyRprtr] Offline mode enabled - events will be queued to file')
   }
-
   private describeTitlePath(test: TestCase): string[] {
     const titlePath: string[] = []
-    for (let suite: Suite | undefined = test.parent; suite?.type === 'describe'; suite = suite.parent) {
+    for (let suite: Suite | undefined = test.parent; suite?.type === 'describe'; suite = suite.parent)
       titlePath.unshift(suite.title)
-    }
     return titlePath
   }
-
   private reporterTitlePath(test: TestCase): string[] {
     return typeof test.titlePath === 'function'
       ? test.titlePath()
       : ['', test.parent.project()?.name ?? 'chromium', test.location.file, ...this.describeTitlePath(test), test.title]
   }
-
   onTestBegin(test: TestCase): void {
-    const titlePath = this.describeTitlePath(test)
     this.testMetadata.set(test.id, { reporterTitlePath: this.reporterTitlePath(test) })
     this.send({
       type: 'test-begin',
       data: {
         id: test.id,
         title: test.title,
-        titlePath,
+        titlePath: this.describeTitlePath(test),
         browser: test.parent.project()?.name ?? 'chromium',
         location: { file: test.location.file, line: test.location.line },
       },
     })
   }
-
   async onTestEnd(test: TestCase, result: TestResult): Promise<void> {
-    const screenshotDeclarations = extractScreenshotDeclarations(result.steps)
+    const screenshotDeclarations: ScreenshotDeclarations = extractScreenshotDeclarations(result.steps)
     const savedAttachments = await this.saveAttachments(test.id, result)
-
     try {
       await this.copySnapshotBaselines(test, result.status, screenshotDeclarations, savedAttachments)
       this.send({
@@ -150,18 +140,10 @@ export class CrvyRprtr implements Reporter {
       this.testMetadata.delete(test.id)
     }
   }
-
-  private baselineResolverInput(
-    test: TestCase,
-    declarations: ReturnType<typeof extractScreenshotDeclarations>,
-  ): Parameters<typeof resolveBaselineTargets>[0] | null {
+  private baselineResolverInput(test: TestCase, declarations: ScreenshotDeclarations): BaselineResolverInput | null {
     const project = test.parent.project()
     const snapshotDir = this.playwrightSnapshotDir ?? project?.snapshotDir
-
-    if (project === undefined || typeof project.testDir !== 'string' || typeof snapshotDir !== 'string') {
-      return null
-    }
-
+    if (project === undefined || typeof project.testDir !== 'string' || typeof snapshotDir !== 'string') return null
     return {
       testFile: test.location.file,
       reporterTitlePath: this.testMetadata.get(test.id)?.reporterTitlePath ?? this.reporterTitlePath(test),
@@ -178,7 +160,6 @@ export class CrvyRprtr implements Reporter {
       snapshotPathExists: existsSync,
     }
   }
-
   private async copyResolvedBaseline(
     safeTestId: string,
     testScreenshotDir: string,
@@ -186,50 +167,42 @@ export class CrvyRprtr implements Reporter {
     savedAttachments: AttachmentData[],
   ): Promise<void> {
     const attachmentName = `${target.attachmentBaseName}-expected.png`
-    const artifactName = `${target.artifactBaseName}-expected.png`
-    const destPath = join(testScreenshotDir, artifactName)
-
+    const artifactPath = copiedBaselineArtifactPath(attachmentName)
+    const destPath = join(testScreenshotDir, artifactPath)
     try {
       await mkdir(dirname(destPath), { recursive: true })
       await copyFile(target.snapshotPath, destPath)
-      savedAttachments.push({ name: attachmentName, path: `${safeTestId}/${artifactName}`, contentType: 'image/png' })
+      savedAttachments.push({ name: attachmentName, path: `${safeTestId}/${artifactPath}`, contentType: 'image/png' })
       console.log(`[CrvyRprtr] Attached baseline: ${target.snapshotPath}`)
     } catch {
       // keep declared-only when no exact baseline exists
     }
   }
-
   private async copySnapshotBaselines(
     test: TestCase,
     status: TestResult['status'],
-    screenshotDeclarations: ReturnType<typeof extractScreenshotDeclarations>,
+    screenshotDeclarations: ScreenshotDeclarations,
     savedAttachments: AttachmentData[],
   ): Promise<void> {
     if (status !== 'passed' || screenshotDeclarations.length === 0) return
-
     const input = this.baselineResolverInput(test, screenshotDeclarations)
     if (input === null) return
-
     const targets = resolveBaselineTargets(input)
     if (targets.length === 0) return
-
     const safeTestId = this.sanitizeId(test.id)
     const testScreenshotDir = join(this.screenshotDir, safeTestId)
     const limit = pLimit(MAX_CONCURRENT_FILE_OPS)
-
     await Promise.all(
       targets.map((target) =>
         limit(() => this.copyResolvedBaseline(safeTestId, testScreenshotDir, target, savedAttachments)),
       ),
     )
   }
-
   private async saveAttachments(testId: string, result: TestResult): Promise<AttachmentData[]> {
     const savedAttachments: AttachmentData[] = []
     const safeTestId = this.sanitizeId(testId)
     const testScreenshotDir = join(this.screenshotDir, safeTestId)
     const limit = pLimit(MAX_CONCURRENT_FILE_OPS)
-
     await Promise.all(
       result.attachments
         .filter(
@@ -259,40 +232,29 @@ export class CrvyRprtr implements Reporter {
           }),
         ),
     )
-
     return savedAttachments
   }
-
   private sanitizeId(id: string): string {
     return id.replace(/[^a-zA-Z0-9-_]/g, '_')
   }
-
   private async writeOfflineReport(): Promise<void> {
     if (this.runEvents.length === 0) {
       console.log('[CrvyRprtr] No offline events to write')
       return
     }
-
     try {
-      await writeFile(
-        this.offlineReportPath,
-        JSON.stringify(
-          {
-            version: 1,
-            generatedAt: new Date().toISOString(),
-            workers: this.workerIndex + 1,
-            events: this.runEvents.map((event) => ({ ...event, timestamp: Date.now(), workerIndex: this.workerIndex })),
-          },
-          null,
-          2,
-        ),
-      )
+      const report = {
+        version: 1,
+        generatedAt: new Date().toISOString(),
+        workers: this.workerIndex + 1,
+        events: this.runEvents.map((event) => ({ ...event, timestamp: Date.now(), workerIndex: this.workerIndex })),
+      }
+      await writeFile(this.offlineReportPath, JSON.stringify(report, null, 2))
       console.log(`[CrvyRprtr] Wrote offline report: ${this.offlineReportPath}`)
     } catch (error) {
       console.error('[CrvyRprtr] Failed to write offline report:', error)
     }
   }
-
   private async writeStaticArtifact(): Promise<void> {
     try {
       await writeReportArtifact({
@@ -305,15 +267,18 @@ export class CrvyRprtr implements Reporter {
       console.error('[CrvyRprtr] Failed to write report artifact:', error)
     }
   }
-
   async onEnd(result: FullResult): Promise<void> {
     this.send({ type: 'run-end', data: { status: result.status } })
     await this.writeStaticArtifact()
     if (this.hadOfflineMode) await this.writeOfflineReport()
-
     await new Promise<void>((resolve) => {
-      if (!this.ws || this.ws.readyState === WebSocket.CLOSED) return resolve()
-      this.ws.onclose = (): void => resolve()
+      if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
+        resolve()
+        return
+      }
+      this.ws.onclose = (): void => {
+        resolve()
+      }
       setTimeout(() => {
         this.ws?.close()
         resolve()
@@ -321,13 +286,10 @@ export class CrvyRprtr implements Reporter {
       this.ws.close()
     })
   }
-
   private send(message: object): void {
     const event = message as { type?: string; data?: unknown }
-    if (event.type === 'test-begin' || event.type === 'test-end' || event.type === 'run-end') {
+    if (event.type === 'test-begin' || event.type === 'test-end' || event.type === 'run-end')
       this.runEvents.push({ type: event.type, data: event.data })
-    }
-
     const payload = JSON.stringify(message)
     if (!this.isOfflineMode) {
       if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(payload)
@@ -335,5 +297,4 @@ export class CrvyRprtr implements Reporter {
     }
   }
 }
-
 export default CrvyRprtr

@@ -437,7 +437,7 @@ describe('Offline Mode', () => {
     expect(testEndMessage!.data.attachments).toMatchObject([
       {
         name: '__unnamed-screenshot-1-expected.png',
-        path: 'test-visual-unnamed-copy/-unnamed-screenshot-1-expected.png',
+        path: 'test-visual-unnamed-copy/__unnamed-screenshot-1-expected.png',
       },
     ])
   })
@@ -499,7 +499,7 @@ describe('Offline Mode', () => {
     ])
   })
 
-  test('copies a named screenshot baseline for multi-segment screenshot names', async () => {
+  test('copies a named screenshot baseline for multi-segment screenshot names without flattening the path', async () => {
     const { CrvyRprtr } = await import('../src/reporter')
 
     const reporter = new CrvyRprtr({
@@ -552,12 +552,13 @@ describe('Offline Mode', () => {
     ).toMatchObject([
       {
         name: 'dir/header-expected.png',
-        path: 'test-visual-nested-copy/dir-header-expected.png',
+        path: 'test-visual-nested-copy/dir/header-expected.png',
       },
     ])
+    expect(existsSync(join(TEST_SCREENSHOT_DIR, 'test-visual-nested-copy', 'dir', 'header-expected.png'))).toBe(true)
   })
 
-  test('uses a filesystem-safe copied baseline path for slash-named screenshots with unsafe last segments', async () => {
+  test('uses filesystem-safe encoded copied baseline paths for unsafe slash-named screenshot segments', async () => {
     const { CrvyRprtr } = await import('../src/reporter')
 
     const reporter = new CrvyRprtr({
@@ -610,12 +611,99 @@ describe('Offline Mode', () => {
     ).toMatchObject([
       {
         name: 'dir/header:mobile-expected.png',
-        path: 'test-visual-nested-unsafe-copy/dir-header-mobile-expected.png',
+        path: 'test-visual-nested-unsafe-copy/dir/header%3Amobile-expected.png',
       },
     ])
     expect(
-      existsSync(join(TEST_SCREENSHOT_DIR, 'test-visual-nested-unsafe-copy', 'dir-header-mobile-expected.png')),
+      existsSync(join(TEST_SCREENSHOT_DIR, 'test-visual-nested-unsafe-copy', 'dir', 'header%3Amobile-expected.png')),
     ).toBe(true)
+  })
+
+  test('keeps encoded slash-named copied baseline paths distinct from flat safe-name paths that used to collide', async () => {
+    const { CrvyRprtr } = await import('../src/reporter')
+
+    const reporter = new CrvyRprtr({
+      screenshotDir: TEST_SCREENSHOT_DIR,
+      reportHtmlPath: TEST_ARTIFACT_PATH,
+    })
+
+    await mkdir(join(TEST_SNAPSHOT_DIR, 'dir'), { recursive: true })
+    await writeFile(
+      join(TEST_SNAPSHOT_DIR, 'dir', `header:mobile-chromium-${process.platform}.png`),
+      'nested baseline image',
+    )
+
+    const sent: unknown[] = []
+
+    type TestReporter = {
+      send: (message: unknown) => void
+      onTestEnd: (test: object, result: object) => Promise<void>
+    }
+
+    const reporterAny = reporter as unknown as TestReporter
+    reporterAny.send = (message: unknown): void => {
+      sent.push(message)
+    }
+
+    await reporterAny.onTestEnd(
+      {
+        id: 'test-visual-collision-proof-nested',
+        title: 'visual pass',
+        location: { file: TEST_FILE, line: 10 },
+        parent: {
+          project: () => createProject('chromium'),
+        },
+      },
+      {
+        status: 'passed',
+        errors: [],
+        duration: 100,
+        attachments: [],
+        steps: [
+          {
+            title: 'outer step',
+            steps: [{ title: 'Expect "toHaveScreenshot(dir/header:mobile.png)"', steps: [] }],
+          },
+        ],
+      },
+    )
+
+    await writeFile(
+      join(TEST_SNAPSHOT_DIR, `dir-header-mobile-chromium-${process.platform}.png`),
+      'flat baseline image',
+    )
+
+    await reporterAny.onTestEnd(
+      {
+        id: 'test-visual-collision-proof-flat',
+        title: 'visual pass',
+        location: { file: TEST_FILE, line: 10 },
+        parent: {
+          project: () => createProject('chromium'),
+        },
+      },
+      {
+        status: 'passed',
+        errors: [],
+        duration: 100,
+        attachments: [],
+        steps: [
+          {
+            title: 'outer step',
+            steps: [{ title: 'Expect "toHaveScreenshot(dir-header-mobile.png)"', steps: [] }],
+          },
+        ],
+      },
+    )
+
+    const attachmentPaths = sent.flatMap((message) =>
+      ((message as { data?: { attachments?: Array<{ path: string }> } }).data?.attachments ?? []).map(
+        (attachment) => attachment.path,
+      ),
+    )
+
+    expect(attachmentPaths).toContain('test-visual-collision-proof-nested/dir/header%3Amobile-expected.png')
+    expect(attachmentPaths).toContain('test-visual-collision-proof-flat/dir-header-mobile-expected.png')
   })
 
   test('normalizes Windows-style screenshot names to forward slashes in offline attachments', async () => {
@@ -671,7 +759,7 @@ describe('Offline Mode', () => {
     ).toMatchObject([
       {
         name: 'dir/header-expected.png',
-        path: 'test-visual-windows-nested-copy/dir-header-expected.png',
+        path: 'test-visual-windows-nested-copy/dir/header-expected.png',
       },
     ])
   })

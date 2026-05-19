@@ -85,7 +85,7 @@ Explicit flags override the paths derived from `artifact-dir`.
 1. **During test runs:** The Playwright reporter sends test results to the server via WebSocket in real-time and records the same run for artifact export.
 2. **After tests complete:** A static `crvy-rprtr.html` artifact is written for direct browser viewing, and offline report JSON is also written if the server was unavailable.
 3. **In the browser:** The UI shows all screenshot tests with side-by-side, swap, slide, and blend diff views.
-4. **Approving changes:** Start the UI server and click "Approve" to accept a new screenshot as the baseline. The current approval route copies the actual image to Crvy Rprtr's existing/default Playwright snapshot target (`<test-file>-snapshots/<image>-<browser>-<platform>.png`).
+4. **Approving changes:** Start the UI server and click "Approve" or "Approve All" to accept a new screenshot as the baseline. Approval reuses the same exact Playwright-aware snapshot resolution as passed-baseline display, including default layouts, unnamed screenshots, duplicate names, and explicitly configured custom templates. If Crvy Rprtr cannot determine exactly one target path, it leaves the image unresolved instead of guessing.
 
 ## Offline Mode
 
@@ -107,7 +107,7 @@ Exact resolution mirrors Playwright's screenshot naming and template rules for d
 
 Crvy Rprtr does not auto-read Playwright config for snapshot template discovery. If your suite uses a custom snapshot layout, pass the matching `playwrightSnapshotDir`, `playwrightSnapshotPathTemplate`, or `playwrightToHaveScreenshotPathTemplate` reporter options explicitly.
 
-Those Playwright-aware resolution options currently affect passed-baseline display only. They do not change approval target resolution, which still uses the existing/default approval path above.
+Those Playwright-aware resolution options affect both passed-baseline display and approval target resolution. For slash-containing named screenshot titles, Crvy Rprtr only updates the baseline when one exact Playwright-equivalent target can be determined.
 
 When the server is running, Crvy Rprtr also refreshes the UI after report JSON or screenshot artifacts change on disk.
 

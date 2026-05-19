@@ -10,7 +10,17 @@ const TEST_WORKER_INDEX = '99'
 const TEST_REPORT_PATH = `./crvy-rprtr-${TEST_WORKER_INDEX}.json`
 const TEST_ARTIFACT_PATH = './test-crvy-rprtr.html'
 const TEST_SCREENSHOT_DIR = './test-offline-screenshots'
-const TEST_SNAPSHOT_DIR = 'tests/example.spec.ts-snapshots'
+const TEST_DIR = join(process.cwd(), 'tests')
+const TEST_FILE = join(TEST_DIR, 'example.spec.ts')
+const TEST_SNAPSHOT_DIR = join(TEST_DIR, 'example.spec.ts-snapshots')
+
+function createProject(name: string): { name: string; testDir: string; snapshotDir: string } {
+  return {
+    name,
+    testDir: TEST_DIR,
+    snapshotDir: TEST_DIR,
+  }
+}
 
 function assertValidOfflineReport(value: unknown): OfflineReport {
   const parsed = safeParse(OfflineReportSchema, value)
@@ -213,9 +223,9 @@ describe('Offline Mode', () => {
       {
         id: 'test-visual-named',
         title: 'visual pass',
-        location: { file: 'tests/example.spec.ts', line: 10 },
+        location: { file: TEST_FILE, line: 10 },
         parent: {
-          project: () => ({ name: 'chromium' }),
+          project: () => createProject('chromium'),
         },
       },
       {
@@ -263,9 +273,9 @@ describe('Offline Mode', () => {
       {
         id: 'test-visual-named-copy',
         title: 'visual pass',
-        location: { file: 'tests/example.spec.ts', line: 10 },
+        location: { file: TEST_FILE, line: 10 },
         parent: {
-          project: () => ({ name: 'chromium' }),
+          project: () => createProject('chromium'),
         },
       },
       {
@@ -290,6 +300,144 @@ describe('Offline Mode', () => {
       {
         name: 'header-expected.png',
         path: 'test-visual-named-copy/header-expected.png',
+      },
+    ])
+  })
+
+  test('copies a named screenshot baseline using an explicit toHaveScreenshot path template', async () => {
+    const { CrvyRprtr } = await import('../src/reporter')
+
+    const customSnapshotDir = join(TEST_SNAPSHOT_DIR, 'custom-layout')
+    await mkdir(join(customSnapshotDir, 'chromium', 'example.spec.ts'), { recursive: true })
+    await writeFile(join(customSnapshotDir, 'chromium', 'example.spec.ts', 'header.png'), 'baseline image')
+
+    const reporter = new CrvyRprtr({
+      screenshotDir: TEST_SCREENSHOT_DIR,
+      reportHtmlPath: TEST_ARTIFACT_PATH,
+      playwrightSnapshotDir: customSnapshotDir,
+      playwrightToHaveScreenshotPathTemplate: '{snapshotDir}/{projectName}/{testFilePath}/{arg}{ext}',
+    })
+
+    const sent: unknown[] = []
+
+    type TestReporter = {
+      send: (message: unknown) => void
+      onTestEnd: (test: object, result: object) => Promise<void>
+    }
+
+    const reporterAny = reporter as unknown as TestReporter
+    reporterAny.send = (message: unknown): void => {
+      sent.push(message)
+    }
+
+    await reporterAny.onTestEnd(
+      {
+        id: 'test-visual-custom-template',
+        title: 'visual pass',
+        location: { file: TEST_FILE, line: 10 },
+        parent: {
+          project: () => createProject('chromium'),
+        },
+      },
+      {
+        status: 'passed',
+        errors: [],
+        duration: 100,
+        attachments: [],
+        steps: [
+          {
+            title: 'outer step',
+            steps: [{ title: 'Expect "toHaveScreenshot(header.png)"', steps: [] }],
+          },
+        ],
+      },
+    )
+
+    expect(sent).toHaveLength(1)
+    expect(
+      (sent[0] as { data: { attachments: Array<{ name: string; path: string }> } }).data.attachments,
+    ).toMatchObject([
+      {
+        name: 'header-expected.png',
+        path: 'test-visual-custom-template/header-expected.png',
+      },
+    ])
+  })
+
+  test('copies an unnamed screenshot baseline using titlePath metadata from onTestBegin', async () => {
+    const { CrvyRprtr } = await import('../src/reporter')
+
+    await mkdir(TEST_SNAPSHOT_DIR, { recursive: true })
+    await writeFile(join(TEST_SNAPSHOT_DIR, `Suite-visual-pass-1-chromium-${process.platform}.png`), 'baseline image')
+
+    const reporter = new CrvyRprtr({
+      screenshotDir: TEST_SCREENSHOT_DIR,
+      reportHtmlPath: TEST_ARTIFACT_PATH,
+    })
+
+    const sent: unknown[] = []
+
+    type TestReporter = {
+      send: (message: unknown) => void
+      onTestBegin: (test: object) => void
+      onTestEnd: (test: object, result: object) => Promise<void>
+    }
+
+    const reporterAny = reporter as unknown as TestReporter
+    reporterAny.send = (message: unknown): void => {
+      sent.push(message)
+    }
+
+    reporterAny.onTestBegin({
+      id: 'test-visual-unnamed-copy',
+      title: 'visual pass',
+      titlePath: () => ['', 'chromium', 'example.spec.ts', 'Suite', 'visual pass'],
+      location: { file: TEST_FILE, line: 10 },
+      parent: {
+        title: 'Suite',
+        type: 'describe',
+        project: () => createProject('chromium'),
+        parent: undefined,
+      },
+    })
+
+    await reporterAny.onTestEnd(
+      {
+        id: 'test-visual-unnamed-copy',
+        title: 'visual pass',
+        titlePath: () => ['', 'chromium', 'example.spec.ts', 'Suite', 'visual pass'],
+        location: { file: TEST_FILE, line: 10 },
+        parent: {
+          project: () => createProject('chromium'),
+        },
+      },
+      {
+        status: 'passed',
+        errors: [],
+        duration: 100,
+        attachments: [],
+        steps: [
+          {
+            title: 'outer step',
+            steps: [{ title: 'Expect "toHaveScreenshot"', steps: [] }],
+          },
+        ],
+      },
+    )
+
+    const testEndMessage = sent.find(
+      (message): message is { type: 'test-end'; data: { attachments: Array<{ name: string; path: string }> } } =>
+        typeof message === 'object' &&
+        message !== null &&
+        'type' in message &&
+        (message as { type?: string }).type === 'test-end',
+    )
+
+    expect(testEndMessage).toBeDefined()
+    expect(testEndMessage!.data.attachments).toMatchObject([
+      {
+        name: '__unnamed-screenshot-1-expected.png',
+        path: 'test-visual-unnamed-copy/__unnamed-screenshot-1-expected.png',
       },
     ])
   })
@@ -321,9 +469,9 @@ describe('Offline Mode', () => {
       {
         id: 'test-visual-empty-project',
         title: 'visual pass',
-        location: { file: 'tests/example.spec.ts', line: 10 },
+        location: { file: TEST_FILE, line: 10 },
         parent: {
-          project: () => ({ name: '' }),
+          project: () => createProject(''),
         },
       },
       {
@@ -378,9 +526,9 @@ describe('Offline Mode', () => {
       {
         id: 'test-visual-nested-copy',
         title: 'visual pass',
-        location: { file: 'tests/example.spec.ts', line: 10 },
+        location: { file: TEST_FILE, line: 10 },
         parent: {
-          project: () => ({ name: 'chromium' }),
+          project: () => createProject('chromium'),
         },
       },
       {
@@ -436,9 +584,9 @@ describe('Offline Mode', () => {
       {
         id: 'test-visual-windows-nested-copy',
         title: 'visual pass',
-        location: { file: 'tests/example.spec.ts', line: 10 },
+        location: { file: TEST_FILE, line: 10 },
         parent: {
-          project: () => ({ name: 'chromium' }),
+          project: () => createProject('chromium'),
         },
       },
       {
@@ -491,11 +639,11 @@ describe('Offline Mode', () => {
     reporterAny.onTestBegin({
       id: 'test-visual-unnamed',
       title: 'visual pass',
-      location: { file: 'tests/example.spec.ts', line: 10 },
+      location: { file: TEST_FILE, line: 10 },
       parent: {
         title: 'Suite',
         type: 'describe',
-        project: () => ({ name: 'chromium' }),
+        project: () => createProject('chromium'),
         parent: undefined,
       },
     })
@@ -504,9 +652,9 @@ describe('Offline Mode', () => {
       {
         id: 'test-visual-unnamed',
         title: 'visual pass',
-        location: { file: 'tests/example.spec.ts', line: 10 },
+        location: { file: TEST_FILE, line: 10 },
         parent: {
-          project: () => ({ name: 'chromium' }),
+          project: () => createProject('chromium'),
         },
       },
       {

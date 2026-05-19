@@ -50,12 +50,15 @@ npx crvy-rprtr ./artifacts
 
 ## Reporter Options
 
-| Option              | Type     | Default                        | Description                                        |
-| ------------------- | -------- | ------------------------------ | -------------------------------------------------- |
-| `serverUrl`         | `string` | `"ws://localhost:3000"`        | WebSocket URL of the Crvy Rprtr server             |
-| `screenshotDir`     | `string` | `"./screenshots"`              | Directory for saving screenshot artifacts          |
-| `offlineReportPath` | `string` | `"./crvy-rprtr-{worker}.json"` | Path for offline report when server is unavailable |
-| `reportHtmlPath`    | `string` | `"./crvy-rprtr.html"`          | Path for the browser-openable static report HTML   |
+| Option                                   | Type     | Default                        | Description                                                                |
+| ---------------------------------------- | -------- | ------------------------------ | -------------------------------------------------------------------------- |
+| `serverUrl`                              | `string` | `"ws://localhost:3000"`        | WebSocket URL of the Crvy Rprtr server                                     |
+| `screenshotDir`                          | `string` | `"./screenshots"`              | Directory for saving screenshot artifacts                                  |
+| `offlineReportPath`                      | `string` | `"./crvy-rprtr-{worker}.json"` | Path for offline report when server is unavailable                         |
+| `reportHtmlPath`                         | `string` | `"./crvy-rprtr.html"`          | Path for the browser-openable static report HTML                           |
+| `playwrightSnapshotDir`                  | `string` | `undefined`                    | Override the Playwright snapshot directory used for passed baseline lookup |
+| `playwrightSnapshotPathTemplate`         | `string` | `undefined`                    | Mirror Playwright `snapshotPathTemplate` for passed baseline resolution    |
+| `playwrightToHaveScreenshotPathTemplate` | `string` | `undefined`                    | Mirror Playwright `expect.toHaveScreenshot.pathTemplate`; takes precedence |
 
 ## Server CLI Options
 
@@ -97,8 +100,12 @@ When the server isn't running during tests, the reporter automatically falls bac
 
 Crvy Rprtr keeps passed Playwright screenshot assertions visible in two fallback modes when Playwright does not emit a full passing comparison payload:
 
-- `baseline-only`: Crvy Rprtr copied the expected snapshot into the screenshot directory, so the UI can still show the stored baseline.
-- `declared-only`: the screenshot assertion was detected, but Playwright did not emit a passed artifact and no snapshot file could be resolved.
+- `baseline-only`: Crvy Rprtr resolved the exact expected snapshot path and copied that baseline into the screenshot directory, so the UI can show the stored baseline.
+- `declared-only`: the screenshot assertion was detected, but Crvy Rprtr could not resolve one exact snapshot file and therefore keeps the honest text-only fallback.
+
+Exact resolution mirrors Playwright's screenshot naming and template rules for default layouts, unnamed screenshots, and explicitly configured custom templates. For slash-containing named screenshot titles, Crvy Rprtr may check both Playwright-equivalent variants and only uses a baseline when exactly one candidate wins.
+
+Crvy Rprtr does not auto-read Playwright config for snapshot template discovery. If your suite uses a custom snapshot layout, pass the matching `playwrightSnapshotDir`, `playwrightSnapshotPathTemplate`, or `playwrightToHaveScreenshotPathTemplate` reporter options explicitly.
 
 When the server is running, Crvy Rprtr also refreshes the UI after report JSON or screenshot artifacts change on disk.
 

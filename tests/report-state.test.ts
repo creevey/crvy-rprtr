@@ -125,6 +125,38 @@ describe('report-state visual classification', () => {
 })
 
 describe('report-state approval metadata', () => {
+  test('falls back to visualNames for older parsed payloads without visualDeclarations', () => {
+    const state = createMutableReportState('./screenshots')
+
+    applyTestBeginEvent(state, {
+      id: 'test-legacy-visual-names',
+      title: 'visual pass',
+      titlePath: ['Suite'],
+      browser: 'chromium',
+      location: { file: 'tests/example.spec.ts', line: 10 },
+    })
+
+    const parsedEvent = safeParse(TestEndDataSchema, {
+      id: 'test-legacy-visual-names',
+      status: 'passed',
+      attachments: [],
+      visualNames: ['header'],
+      duration: 5,
+    })
+
+    expect(parsedEvent).not.toBeNull()
+    if (parsedEvent === null) {
+      return
+    }
+
+    applyTestEndEvent(state, parsedEvent, { screenshotsBaseUrl: '/screenshots/' })
+
+    const result = state.reportData.tests['test-legacy-visual-names']?.results?.[0]
+
+    expect(result?.images?.['header']?.source).toBe('declared-only')
+    expect(result?.visualDeclarations).toBeUndefined()
+  })
+
   test('stores resolver metadata for named and unnamed screenshots', () => {
     const state = createMutableReportState('./screenshots')
 

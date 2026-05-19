@@ -143,7 +143,10 @@ export const TestEndDataSchema = z.object({
   status: z.enum(['passed', 'failed', 'skipped']),
   attachments: z.array(AttachmentSchema),
   visualNames: z.array(z.string()).default([]),
-  visualDeclarations: z.preprocess((value) => value ?? [], z.array(ScreenshotDeclarationSchema).optional()),
+  visualDeclarations: z.preprocess(
+    (value) => (value === null ? undefined : value),
+    z.array(ScreenshotDeclarationSchema).optional(),
+  ),
   error: z.string().optional(),
   duration: z.number().optional(),
 })

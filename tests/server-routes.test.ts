@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { mkdir, readFile, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 
+import { createServerApp } from '../src/server/app'
 import { handleHttpRequest } from '../src/server/routes'
 import type { TestData } from '../src/types'
 
@@ -11,6 +12,10 @@ const SNAPSHOT_DIR = join(TMP_DIR, 'snapshots')
 const PLAYWRIGHT_TEST_DIR = join(TMP_DIR, 'tests')
 const TEST_FILE = join(PLAYWRIGHT_TEST_DIR, 'example.spec.ts')
 const NESTED_TEST_FILE = join(PLAYWRIGHT_TEST_DIR, 'nested', 'example.spec.ts')
+const PLAYWRIGHT_CONFIG_DIR = join(TMP_DIR, 'playwright-config')
+const CONFIGURED_PLAYWRIGHT_TEST_DIR = join(PLAYWRIGHT_CONFIG_DIR, 'tests')
+const CONFIGURED_NESTED_TEST_FILE = join(CONFIGURED_PLAYWRIGHT_TEST_DIR, 'nested', 'example.spec.ts')
+const RELATIVE_SNAPSHOT_DIR = 'test-approval-routing-relative-snapshots'
 const CUSTOM_TEMPLATE = '{snapshotDir}/{projectName}/{testFilePath}/{arg}{ext}'
 
 function createContext(tests: Record<string, TestData>): Parameters<typeof handleHttpRequest>[0] {
@@ -35,6 +40,7 @@ function createContext(tests: Record<string, TestData>): Parameters<typeof handl
 
 afterEach(async () => {
   await rm(TMP_DIR, { recursive: true, force: true })
+  await rm(join(process.cwd(), RELATIVE_SNAPSHOT_DIR), { recursive: true, force: true })
 })
 
 describe('approval routing', () => {
@@ -145,6 +151,83 @@ describe('approval routing', () => {
       'flat baseline image',
     )
     expect(tests['test-nested']?.approved).toEqual({ header: 0 })
+  })
+
+  test('approve resolves relative snapshot paths against the configured configDir instead of the server cwd', async () => {
+    const configuredSnapshotDir = join(
+      PLAYWRIGHT_CONFIG_DIR,
+      RELATIVE_SNAPSHOT_DIR,
+      'chromium',
+      'nested',
+      'example.spec.ts',
+    )
+    const cwdSnapshotDir = join(process.cwd(), RELATIVE_SNAPSHOT_DIR, 'chromium', 'nested', 'example.spec.ts')
+    const reportPath = join(TMP_DIR, 'report.json')
+
+    await mkdir(join(SCREENSHOT_DIR, 'test-config-dir'), { recursive: true })
+    await mkdir(configuredSnapshotDir, { recursive: true })
+    await mkdir(cwdSnapshotDir, { recursive: true })
+    await writeFile(join(SCREENSHOT_DIR, 'test-config-dir', 'header-actual.png'), 'actual image')
+    await writeFile(join(configuredSnapshotDir, 'header.png'), 'configured baseline image')
+    await writeFile(join(cwdSnapshotDir, 'header.png'), 'cwd baseline image')
+
+    const tests: Record<string, TestData> = {
+      'test-config-dir': {
+        id: 'test-config-dir',
+        title: 'visual pass',
+        titlePath: ['Suite'],
+        browser: 'chromium',
+        location: { file: CONFIGURED_NESTED_TEST_FILE, line: 10 },
+        results: [
+          {
+            status: 'failed',
+            retries: 0,
+            images: {
+              header: {
+                actual: '/screenshots/test-config-dir/header-actual.png',
+              },
+            },
+            visualDeclarations: [
+              {
+                visualName: 'header',
+                kind: 'named',
+                declaredName: 'header',
+                snapshotBaseName: 'header',
+                occurrenceIndex: 1,
+              },
+            ],
+          },
+        ],
+      },
+    }
+
+    await writeFile(reportPath, JSON.stringify({ tests }))
+
+    const app = await createServerApp({
+      reportPath,
+      screenshotDir: SCREENSHOT_DIR,
+      staticDir: './dist',
+      configDir: PLAYWRIGHT_CONFIG_DIR,
+      playwrightTestDir: CONFIGURED_PLAYWRIGHT_TEST_DIR,
+      playwrightSnapshotDir: RELATIVE_SNAPSHOT_DIR,
+      playwrightToHaveScreenshotPathTemplate: CUSTOM_TEMPLATE,
+    })
+
+    try {
+      const response = await app.handleRequest(
+        new Request('http://localhost/api/approve', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id: 'test-config-dir', retry: 0, image: 'header' }),
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      expect(await readFile(join(configuredSnapshotDir, 'header.png'), 'utf-8')).toBe('actual image')
+      expect(await readFile(join(cwdSnapshotDir, 'header.png'), 'utf-8')).toBe('cwd baseline image')
+    } finally {
+      app.close()
+    }
   })
 
   test('approve fails when exact resolution is ambiguous', async () => {

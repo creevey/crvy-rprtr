@@ -246,6 +246,69 @@ describe('Offline Mode', () => {
     expect((sent[0] as { data: { visualNames: string[] } }).data.visualNames).toEqual(['header'])
   })
 
+  test('includes visualDeclarations in the test-end payload', async () => {
+    const { CrvyRprtr } = await import('../src/reporter')
+
+    const reporter = new CrvyRprtr({
+      screenshotDir: TEST_SCREENSHOT_DIR,
+      reportHtmlPath: TEST_ARTIFACT_PATH,
+    })
+
+    const sent: unknown[] = []
+
+    type TestReporter = {
+      send: (message: unknown) => void
+      onTestEnd: (test: object, result: object) => Promise<void>
+    }
+
+    const reporterAny = reporter as unknown as TestReporter
+    reporterAny.send = (message: unknown): void => {
+      sent.push(message)
+    }
+
+    await reporterAny.onTestEnd(
+      {
+        id: 'test-visual-declarations',
+        title: 'visual pass',
+        location: { file: TEST_FILE, line: 10 },
+        parent: {
+          project: () => createProject('chromium'),
+        },
+      },
+      {
+        status: 'passed',
+        errors: [],
+        duration: 100,
+        attachments: [],
+        steps: [
+          {
+            title: 'outer step',
+            steps: [
+              { title: 'Expect "toHaveScreenshot(header.png)"', steps: [] },
+              { title: 'Expect "toHaveScreenshot"', steps: [] },
+            ],
+          },
+        ],
+      },
+    )
+
+    expect(sent).toHaveLength(1)
+    expect((sent[0] as { data: { visualDeclarations: unknown[] } }).data.visualDeclarations).toEqual([
+      {
+        visualName: 'header',
+        kind: 'named',
+        declaredName: 'header',
+        snapshotBaseName: 'header',
+        occurrenceIndex: 1,
+      },
+      {
+        visualName: '__unnamed-screenshot-1',
+        kind: 'unnamed',
+        occurrenceIndex: 1,
+      },
+    ])
+  })
+
   test('copies a named screenshot baseline with a .png-suffixed attachment path', async () => {
     const { CrvyRprtr } = await import('../src/reporter')
 

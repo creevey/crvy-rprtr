@@ -134,6 +134,7 @@ export class CrvyRprtr implements Reporter {
           status: result.status,
           attachments: savedAttachments,
           visualNames: screenshotDeclarations.map(({ visualName }) => visualName),
+          visualDeclarations: screenshotDeclarations,
           error: result.errors.length > 0 ? result.errors[0]?.message : undefined,
           duration: result.duration,
         },

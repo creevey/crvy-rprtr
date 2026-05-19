@@ -1,5 +1,7 @@
 import { mount } from 'svelte'
 
+import type { ApprovalResult, BulkApprovalResult } from './approval-api'
+import { readApproveAllResult, readApproveResult } from './approval-api'
 import App from './client/App.svelte'
 import { treeifyTests } from './client/helpers'
 import { ClientBootstrapDataSchema, ReportApiResponseSchema, safeParse } from './schemas'
@@ -59,16 +61,19 @@ async function loadReportData(): Promise<InitialState> {
   }
 }
 
-const handleApprove = async (id: string, retry: number, image: string): Promise<void> => {
-  await fetch('/api/approve', {
+const handleApprove = async (id: string, retry: number, image: string): Promise<ApprovalResult> => {
+  const response = await fetch('/api/approve', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, retry, image }),
   })
+
+  return readApproveResult(response)
 }
 
-const handleApproveAll = async (): Promise<void> => {
-  await fetch('/api/approve-all', { method: 'POST' })
+const handleApproveAll = async (): Promise<BulkApprovalResult> => {
+  const response = await fetch('/api/approve-all', { method: 'POST' })
+  return readApproveAllResult(response)
 }
 
 const root = document.getElementById('root')!

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { isBulkApprovalOptimisticSafe } from '../approval-api';
+  import type { ApprovalResult, BulkApprovalResult } from '../approval-api';
   import type { CrvyRprtrSuite, CrvyRprtrTest, ImagesViewMode } from '../types';
   import { isTest, isDefined } from '../types';
   import {
@@ -33,8 +35,8 @@
     liveUpdates: boolean;
     approvalEnabled: boolean;
     approvalMessage?: string;
-    onApprove: (id: string, retry: number, image: string) => Promise<void>;
-    onApproveAll: () => Promise<void>;
+    onApprove: (id: string, retry: number, image: string) => Promise<ApprovalResult>;
+    onApproveAll: () => Promise<BulkApprovalResult>;
   }
 
   let { initialTests, isReport, isUpdateMode, liveUpdates, approvalEnabled, approvalMessage, onApprove, onApproveAll }: Props = $props();
@@ -226,9 +228,10 @@
     }
   }
 
-  async function handleImageApprove(): Promise<void> {
-    if (!openedTest?.id || !canApprove) return;
-    await onApprove(openedTest.id, retry - 1, imageName);
+  async function handleImageApprove(): Promise<boolean> {
+    if (!openedTest?.id || !canApprove) return false;
+    const approvalResult = await onApprove(openedTest.id, retry - 1, imageName);
+    if (!approvalResult.success) return false;
     if (!openedTest.approved) openedTest.approved = {};
     (openedTest.approved as Record<string, number>)[imageName] = retry - 1;
     const result = openedTest.results?.[retry - 1];
@@ -241,11 +244,13 @@
         recalcSuiteStatuses(tests, getTestPath(openedTest));
       }
     }
+    return true;
   }
 
   async function handleApproveAndGoNext(): Promise<void> {
-    await handleImageApprove();
-    handleGoToNextFailed();
+    if (await handleImageApprove()) {
+      handleGoToNextFailed();
+    }
   }
 
   function getAllTests(suite: CrvyRprtrSuite): CrvyRprtrTest[] {
@@ -255,7 +260,8 @@
   }
 
   async function handleApproveAllTests(): Promise<void> {
-    await onApproveAll();
+    const approvalResult = await onApproveAll();
+    if (!isBulkApprovalOptimisticSafe(approvalResult)) return;
     getAllTests(tests).forEach((test) => {
       if (!test.results?.length) return;
       const lastIdx = test.results.length - 1;

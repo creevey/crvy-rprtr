@@ -22,9 +22,7 @@ import {
   handleSync,
   type HandlerContext,
 } from './handlers.ts'
-import { createDebouncedRefresh, watchReportArtifacts } from './report-watch.ts'
 import { handleHttpRequest, type RoutesContext } from './routes.ts'
-import { broadcastToBrowsers } from './utils.ts'
 import type { RuntimeWebSocket } from './ws.ts'
 
 const MAX_CONCURRENT_FILE_OPS = 5
@@ -136,11 +134,6 @@ async function loadOfflineReports(offlineReportDir: string, reportData: ReportDa
     screenshotDir: reportData.screenshotDir,
     screenshotsBaseUrl: '/screenshots/',
   })
-}
-
-function resetReloadableReportData(reportData: ReportData): void {
-  reportData.tests = {}
-  reportData.isUpdateMode = false
 }
 
 async function handleParsedWebSocketMessage(ctx: HandlerContext, msg: WebSocketMessage): Promise<void> {
@@ -270,24 +263,13 @@ export async function createServerApp(options: ServerOptions = {}): Promise<Serv
   const handleRequest = (req: Request): Promise<Response> => handleHttpRequest(routesContext, req)
   const handleWebSocketMessage = createWebSocketMessageHandler(getHandlerContext)
 
-  const reloadFromDisk = async (): Promise<void> => {
-    resetReloadableReportData(reportData)
-    await loadReport(reportFile, reportData)
-    await loadOfflineReports(offlineReportDir, reportData)
-    broadcastToBrowsers(wsClients, { type: 'sync', data: reportData })
-  }
-
-  await reloadFromDisk()
-  const close = await watchReportArtifacts({
-    offlineReportDir,
-    screenshotDir: reportData.screenshotDir,
-    scheduleRefresh: createDebouncedRefresh(reloadFromDisk),
-  })
+  await loadReport(reportFile, reportData)
+  await loadOfflineReports(offlineReportDir, reportData)
 
   return {
     port,
     wsClients,
-    close,
+    close: () => {},
     handleRequest,
     handleWebSocketMessage,
   }

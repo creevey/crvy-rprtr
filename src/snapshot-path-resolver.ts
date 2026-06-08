@@ -251,6 +251,20 @@ function resolveTarget(
   }
 }
 
+export function withResolvedVisualNames(
+  declarations: readonly ScreenshotDeclaration[],
+  reporterTitlePath: readonly string[],
+): ScreenshotDeclaration[] {
+  return declarations.map((declaration) => {
+    if (declaration.kind !== 'unnamed') {
+      return declaration
+    }
+
+    const resolvedName = playwrightAnonymousVisualName(reporterTitlePath, declaration.occurrenceIndex)
+    return resolvedName === null ? declaration : { ...declaration, visualName: resolvedName }
+  })
+}
+
 export function resolveBaselineTargets(input: SnapshotResolverInput): ResolvedBaselineTarget[] {
   return input.declarations.flatMap((declaration) => {
     const resolvedTarget = resolveTarget(input, declaration)

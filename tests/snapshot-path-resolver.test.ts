@@ -5,6 +5,7 @@ import {
   playwrightAnonymousVisualName,
   resolveBaselineTargets,
   sanitizeForFilePath,
+  withResolvedVisualNames,
 } from '../src/snapshot-path-resolver'
 
 const TEST_DIR = join(process.cwd(), 'tests')
@@ -478,6 +479,33 @@ describe('resolveBaselineTargets', () => {
         snapshotPath: arrayVariantPath,
       },
     ])
+  })
+})
+
+describe('withResolvedVisualNames', () => {
+  test('rewrites unnamed declarations to the real auto-name', () => {
+    expect(
+      withResolvedVisualNames(
+        [{ visualName: '__unnamed-screenshot-1', kind: 'unnamed', occurrenceIndex: 1 }],
+        REPORTER_TITLE_PATH,
+      ),
+    ).toEqual([{ visualName: 'Suite-visual-pass-1', kind: 'unnamed', occurrenceIndex: 1 }])
+  })
+
+  test('leaves named declarations untouched', () => {
+    const named = {
+      visualName: 'header',
+      kind: 'named' as const,
+      declaredName: 'header',
+      snapshotBaseName: 'header',
+      occurrenceIndex: 1,
+    }
+    expect(withResolvedVisualNames([named], REPORTER_TITLE_PATH)).toEqual([named])
+  })
+
+  test('keeps the synthetic name when the title path has no test title', () => {
+    const unnamed = { visualName: '__unnamed-screenshot-1', kind: 'unnamed' as const, occurrenceIndex: 1 }
+    expect(withResolvedVisualNames([unnamed], ['', 'chromium', 'example.spec.ts'])).toEqual([unnamed])
   })
 })
 

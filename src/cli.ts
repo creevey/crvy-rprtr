@@ -8,11 +8,13 @@ import { startServer, type ServerOptions } from './server.ts'
 const DEFAULT_PORT = 3000
 const DEFAULT_SCREENSHOT_DIR = './screenshots'
 const DEFAULT_REPORT_PATH = './report.json'
+const DEFAULT_OUTPUT_DIR = './test-results'
 
 interface ResolvedCliOptions extends ServerOptions {
   port: number
   screenshotDir: string
   reportPath: string
+  outputDir: string
 }
 
 export function resolveCliOptions(args: string[]): ResolvedCliOptions {
@@ -23,6 +25,7 @@ export function resolveCliOptions(args: string[]): ResolvedCliOptions {
       port: { type: 'string', short: 'p', default: `${DEFAULT_PORT}` },
       'screenshot-dir': { type: 'string', short: 's' },
       'report-path': { type: 'string', short: 'r' },
+      'output-dir': { type: 'string', short: 'o' },
     },
   })
 
@@ -40,6 +43,7 @@ export function resolveCliOptions(args: string[]): ResolvedCliOptions {
     port: parseInt(values.port ?? `${DEFAULT_PORT}`, 10),
     screenshotDir,
     reportPath,
+    outputDir: values['output-dir'] ?? DEFAULT_OUTPUT_DIR,
   }
 }
 

@@ -9,6 +9,7 @@ describe('resolveCliOptions', () => {
       port: 3000,
       screenshotDir: './screenshots',
       reportPath: './report.json',
+      outputDir: './test-results',
     })
   })
 
@@ -19,6 +20,7 @@ describe('resolveCliOptions', () => {
       port: 3000,
       screenshotDir: join(artifactDir, 'screenshots'),
       reportPath: join(artifactDir, 'report.json'),
+      outputDir: './test-results',
     })
   })
 
@@ -30,6 +32,7 @@ describe('resolveCliOptions', () => {
       port: 3000,
       screenshotDir: join(artifactDir, 'screenshots'),
       reportPath,
+      outputDir: './test-results',
     })
   })
 
@@ -48,10 +51,23 @@ describe('resolveCliOptions', () => {
       port: 4100,
       screenshotDir: './custom/screenshots',
       reportPath: './custom/report.json',
+      outputDir: './test-results',
     })
   })
 
   test('rejects more than one positional artifact directory', () => {
     expect(() => resolveCliOptions(['./artifacts', './other'])).toThrow('Expected at most one artifact directory')
+  })
+
+  test('--output-dir sets outputDir', () => {
+    expect(resolveCliOptions(['--output-dir', '/custom/results']).outputDir).toBe('/custom/results')
+  })
+
+  test('-o short flag sets outputDir', () => {
+    expect(resolveCliOptions(['-o', '/x']).outputDir).toBe('/x')
+  })
+
+  test('outputDir defaults to ./test-results when omitted', () => {
+    expect(resolveCliOptions([]).outputDir).toBe('./test-results')
   })
 })

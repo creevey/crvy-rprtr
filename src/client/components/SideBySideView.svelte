@@ -21,7 +21,7 @@
   });
 </script>
 
-<div class="flex gap-3 items-start" class:flex-col={isLandscape} class:flex-row={!isLandscape}>
+<div class="flex gap-3 items-center" class:flex-col={isLandscape} class:flex-row={!isLandscape}>
   {#if image.expect}
     <div class="flex-1 flex flex-col bg-surface-panel rounded-md overflow-hidden min-w-0 border-2 border-green-500/60">
       <h3 class="m-0 px-3 py-2 text-xs font-bold bg-green-500/25 text-green-800 dark:text-green-200 uppercase tracking-wider">{expectedLabel}</h3>

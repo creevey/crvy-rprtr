@@ -8,7 +8,7 @@
   let { image }: Props = $props();
 </script>
 
-<div class="flex flex-col gap-3">
+<div class="flex flex-col gap-3 items-center">
   <div class="flex flex-col bg-surface-panel rounded-md overflow-hidden w-fit max-w-full border-2 border-purple-500/60">
     <h3 class="m-0 px-3 py-2 text-xs font-bold bg-purple-500/25 text-purple-800 dark:text-purple-400 uppercase tracking-wider">
       Blend (Difference)

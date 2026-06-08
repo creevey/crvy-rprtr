@@ -163,7 +163,8 @@ export class CrvyRprtr implements Reporter {
       attachments: nativeAttachments,
       visualNames: screenshotDeclarations.map(({ visualName }) => visualName),
       visualDeclarations: screenshotDeclarations,
-      error: result.errors.length > 0 ? result.errors[0]?.message : undefined, duration: result.duration,
+      error: result.errors.length > 0 ? result.errors[0]?.message : undefined,
+      duration: result.duration,
     }
     try {
       if (this.ci) {
@@ -196,7 +197,8 @@ export class CrvyRprtr implements Reporter {
         testDir: project.testDir,
         snapshotDir,
         projectName: project.name,
-        snapshotSuffix: process.platform, snapshotPathTemplate: this.playwrightSnapshotPathTemplate,
+        snapshotSuffix: process.platform,
+        snapshotPathTemplate: this.playwrightSnapshotPathTemplate,
         toHaveScreenshotPathTemplate: this.playwrightToHaveScreenshotPathTemplate,
       },
       snapshotPathExists: existsSync,

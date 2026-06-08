@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-06-08
+
+### Added
+
+- **resolver:** Expose playwrightAnonymousVisualName
+- **resolver:** Add withResolvedVisualNames
+- **server:** Add isPathWithinRoots allowlist helper
+- **server:** Add allowlisted /file artifact route
+- **server:** Add /baseline route, consolidate baseline resolution
+- **server:** Wire artifactRoots and outputDir option
+- Add isCI helper
+- **report-utils:** Route absolute attachment paths to /file
+- **server:** Enrich declared-only images with /baseline urls
+- **reporter:** Add rewriteTestEndAttachments helper
+- **reporter:** Gate screenshot copying and artifacts on CI
+- **cli:** Add --output-dir for live native artifact serving
+
+### Changed
+
+- **resolver:** Compute anonymous title list once
+
+### Documentation
+
+- **spec:** CI-gated screenshot artifact handling design
+- **plans:** Naming fix, live-mode serving, CI-gated copying
+- **server:** Clarify outputDir is resolved against CWD
+
+### Fixed
+
+- Apply web socket payloads directly to the client tree
+- **reporter:** Use Playwright auto-name for unnamed screenshots
+- **server:** Realpath-guard /file route and set nosniff header
+- **server:** Guard /baseline decode, retry parsing, and read errors
+- **server:** Exclude test source dir from /file allowlist
+- **server:** Guard /baseline url parsing, decode testId, test nosniff
+- **server:** Decode /file URLs in approval path
+- **server:** Only enrich declared-only baselines for passed tests
+- **server:** Enrich baselines only when the snapshot file exists
+- **reporter:** Bound onEnd concurrency, fix retry attachments, stop CI queue growth
+
+### Styling
+
+- **client:** Center-align image comparison views
+
+### Testing
+
+- **report-state:** Assert no phantom entry for finalized unnamed screenshot
+- **report-state:** Make phantom-entry guard falsifiable
+- Document phantom fixture divergence and cover multi-occurrence rewrite
+- **server:** Cover raw-traversal and empty-roots cases for isPathWithinRoots
 ## [0.0.9] - 2026-06-05
 
 ### Fixed

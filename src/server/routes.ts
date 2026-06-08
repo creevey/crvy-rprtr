@@ -4,6 +4,7 @@ import { dirname, join } from 'path'
 import { ApproveRequestBodySchema, safeParse } from '../schemas.ts'
 import { resolveBaselineTargets } from '../snapshot-path-resolver.ts'
 import type { TestData } from '../types.ts'
+import { handleFile } from './artifact-routes.ts'
 import { copyFilePortable, respondWithFile } from './file-utils.ts'
 
 export interface RoutesContext {
@@ -280,6 +281,10 @@ export function handleHttpRequest(ctx: RoutesContext, req: Request): Promise<Res
 
   if (pathname.startsWith('/api/images/')) {
     return handleApiImages(req)
+  }
+
+  if (pathname.startsWith('/file/')) {
+    return handleFile(ctx, req)
   }
 
   if (pathname.startsWith('/screenshots/')) {

@@ -713,6 +713,37 @@ describe('approval routing', () => {
   })
 })
 
+describe('GET /file', () => {
+  const ROOT = join(TMP_DIR, 'allowed')
+
+  test('serves a file inside an allowed root', async () => {
+    await mkdir(ROOT, { recursive: true })
+    await writeFile(join(ROOT, 'a.png'), 'image-bytes')
+    const ctx = { ...createContext({}), artifactRoots: [ROOT] }
+
+    const res = await handleHttpRequest(
+      ctx,
+      new Request(`http://localhost/file/${encodeURIComponent(join(ROOT, 'a.png'))}`),
+    )
+
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('image-bytes')
+  })
+
+  test('returns 404 for a path outside every allowed root', async () => {
+    await mkdir(TMP_DIR, { recursive: true })
+    await writeFile(join(TMP_DIR, 'secret.png'), 'secret')
+    const ctx = { ...createContext({}), artifactRoots: [ROOT] }
+
+    const res = await handleHttpRequest(
+      ctx,
+      new Request(`http://localhost/file/${encodeURIComponent(join(TMP_DIR, 'secret.png'))}`),
+    )
+
+    expect(res.status).toBe(404)
+  })
+})
+
 describe('isPathWithinRoots', () => {
   const root = join(process.cwd(), 'allowed')
 

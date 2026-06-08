@@ -128,21 +128,16 @@ if [ "$STAGED_MODE" = true ]; then
     exit 1
   fi
 else
-  # Original behavior: run all checks
-  checks=("lint" "typecheck" "format:check" "knip" "test:bun" "duplicates" "publint")
+  # Run all checks except publint in parallel (test:bun builds dist/ as a side effect)
+  checks=("lint" "typecheck" "format:check" "knip" "test:bun" "duplicates")
   failed=0
   pids=()
 
-  # Run all checks in parallel
   for check in "${checks[@]}"; do
     fname=$(safe_name "$check")
     (
       exit_code=0
-      if [ "$check" = "test:bun" ]; then
-        bun run test:bun >"$TMPDIR/$fname.out" 2>&1 || exit_code=$?
-      else
-        bun run "$check" >"$TMPDIR/$fname.out" 2>&1 || exit_code=$?
-      fi
+      bun run "$check" >"$TMPDIR/$fname.out" 2>&1 || exit_code=$?
       echo "$exit_code" >"$TMPDIR/$fname.exit"
     ) &
     pids+=($!)
@@ -167,33 +162,37 @@ else
     fi
     exit_code=$(cat "$TMPDIR/$fname.exit")
     if [ "$exit_code" -ne 0 ]; then
-      if [ "$check" = "publint" ]; then
-        if [ ! -d "./dist" ]; then
-          echo "ℹ publint skipped (dist/ not found)"
-        else
-          echo "⚠ publint reported issues:"
-          echo "---"
-          cat "$TMPDIR/$fname.out"
-          echo "---"
-        fi
-        passed_checks+=("publint")
-      else
-        failed=$((failed + 1))
-        failed_checks+=("$check")
-        echo ""
-        echo "✗ $check failed (exit code $exit_code):"
-        echo "---"
-        cat "$TMPDIR/$fname.out"
-        echo "---"
-      fi
+      failed=$((failed + 1))
+      failed_checks+=("$check")
+      echo ""
+      echo "✗ $check failed (exit code $exit_code):"
+      echo "---"
+      cat "$TMPDIR/$fname.out"
+      echo "---"
     else
       passed_checks+=("$check")
     fi
   done
 
+  # Run publint after other checks (needs dist/ from test:bun's build)
+  if [ "$failed" -eq 0 ]; then
+    fname=$(safe_name "publint")
+    exit_code=0
+    bun run publint >"$TMPDIR/$fname.out" 2>&1 || exit_code=$?
+    if [ "$exit_code" -ne 0 ]; then
+      echo "⚠ publint reported issues:"
+      echo "---"
+      cat "$TMPDIR/$fname.out"
+      echo "---"
+    fi
+    passed_checks+=("publint")
+  else
+    echo "ℹ publint skipped (earlier checks failed)"
+  fi
+
   # Print summary
-  total=${#checks[@]}
-  passed=$((total - failed))
+  total=$((${#checks[@]} + 1))
+  passed=${#passed_checks[@]}
   echo ""
   echo "Summary of executed checks:"
   for check in "${passed_checks[@]+${passed_checks[@]}}"; do

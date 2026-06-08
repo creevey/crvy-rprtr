@@ -240,12 +240,11 @@ function createRoutesContext(
   saveReport: () => Promise<void>,
   options: ServerOptions,
 ): RoutesContext {
-  const artifactRoots = [
-    reportData.screenshotDir,
-    options.outputDir,
-    options.playwrightSnapshotDir,
-    options.playwrightTestDir,
-  ].filter((root): root is string => root !== undefined && root !== '')
+  // Artifact directories only — NOT the test source tree. Failure artifacts come from
+  // outputDir; baselines are served via the /baseline route, not this allowlist.
+  const artifactRoots = [reportData.screenshotDir, options.outputDir, options.playwrightSnapshotDir].filter(
+    (root): root is string => root !== undefined && root !== '',
+  )
 
   return {
     reportData,

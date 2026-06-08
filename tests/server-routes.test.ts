@@ -877,6 +877,26 @@ describe('createServerApp artifact serving', () => {
     expect(res.status).toBe(200)
     expect(await res.text()).toBe('native-bytes')
   })
+
+  test('does not serve a file outside the configured roots', async () => {
+    const outputDir = join(TMP_DIR, 'test-results')
+    await mkdir(outputDir, { recursive: true })
+    const outsideDir = join(TMP_DIR, 'outside')
+    await mkdir(outsideDir, { recursive: true })
+    await writeFile(join(outsideDir, 'secret.png'), 'secret-bytes')
+
+    const app = await createServerApp({
+      screenshotDir: SCREENSHOT_DIR,
+      outputDir,
+      reportPath: join(TMP_DIR, 'report.json'),
+    })
+
+    const res = await app.handleRequest(
+      new Request(`http://localhost/file/${encodeURIComponent(join(outsideDir, 'secret.png'))}`),
+    )
+
+    expect(res.status).toBe(404)
+  })
 })
 
 describe('isPathWithinRoots', () => {

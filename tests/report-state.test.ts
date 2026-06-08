@@ -231,6 +231,10 @@ describe('report-state approval metadata', () => {
         { name: 'Suite-visual-1-expected.png', path: 't1/Suite-visual-1-expected.png', contentType: 'image/png' },
         { name: 'Suite-visual-1-diff.png', path: 't1/Suite-visual-1-diff.png', contentType: 'image/png' },
       ],
+      // Intentionally divergent: visualNames carries the stale synthetic name while
+      // visualDeclarations carries the finalized name. This proves image keys derive
+      // from visualDeclarations (getDeclaredVisualNames prefers it); using the finalized
+      // name in both would make this test pass even if visualDeclarations were ignored.
       visualNames: ['__unnamed-screenshot-1'],
       visualDeclarations: [{ visualName: 'Suite-visual-1', kind: 'unnamed', occurrenceIndex: 1 }],
     })

@@ -503,6 +503,21 @@ describe('withResolvedVisualNames', () => {
     expect(withResolvedVisualNames([named], REPORTER_TITLE_PATH)).toEqual([named])
   })
 
+  test('rewrites multiple unnamed declarations by occurrence index', () => {
+    expect(
+      withResolvedVisualNames(
+        [
+          { visualName: '__unnamed-screenshot-1', kind: 'unnamed', occurrenceIndex: 1 },
+          { visualName: '__unnamed-screenshot-2', kind: 'unnamed', occurrenceIndex: 2 },
+        ],
+        REPORTER_TITLE_PATH,
+      ),
+    ).toEqual([
+      { visualName: 'Suite-visual-pass-1', kind: 'unnamed', occurrenceIndex: 1 },
+      { visualName: 'Suite-visual-pass-2', kind: 'unnamed', occurrenceIndex: 2 },
+    ])
+  })
+
   test('keeps the synthetic name when the title path has no test title', () => {
     const unnamed = { visualName: '__unnamed-screenshot-1', kind: 'unnamed' as const, occurrenceIndex: 1 }
     expect(withResolvedVisualNames([unnamed], ['', 'chromium', 'example.spec.ts'])).toEqual([unnamed])

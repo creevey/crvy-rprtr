@@ -43,6 +43,7 @@ describe('Report artifact generation', () => {
       screenshotDir,
       offlineReportPath,
       reportHtmlPath,
+      ci: true,
     })
 
     type TestReporter = {

@@ -731,4 +731,12 @@ describe('isPathWithinRoots', () => {
   test('rejects traversal escaping the root', () => {
     expect(isPathWithinRoots(join(root, '..', 'secret.png'), [root])).toBe(false)
   })
+
+  test('rejects a raw un-normalized traversal string', () => {
+    expect(isPathWithinRoots(`${root}/../secret.png`, [root])).toBe(false)
+  })
+
+  test('rejects all paths when roots is empty (deny-all default)', () => {
+    expect(isPathWithinRoots(join(root, 'a.png'), [])).toBe(false)
+  })
 })

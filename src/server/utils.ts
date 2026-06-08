@@ -18,6 +18,8 @@ export function isWebSocketUpgradeRequest(req: Request): boolean {
   )
 }
 
+// Containment check via path.resolve (lexical) — does NOT follow symlinks, so callers
+// must pass roots and targets that are consistently real or consistently symlinked.
 export function isPathWithinRoots(target: string, roots: readonly string[]): boolean {
   const resolvedTarget = resolve(target)
   return roots.some((root) => {

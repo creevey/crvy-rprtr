@@ -1,10 +1,8 @@
-import { existsSync } from 'fs'
-import { dirname, join } from 'path'
+import { join } from 'path'
 
 import { ApproveRequestBodySchema, safeParse } from '../schemas.ts'
-import { resolveBaselineTargets } from '../snapshot-path-resolver.ts'
 import type { TestData } from '../types.ts'
-import { handleFile } from './artifact-routes.ts'
+import { handleArtifactRoute, resolveBaselineSnapshotPath } from './artifact-routes.ts'
 import { copyFilePortable, respondWithFile } from './file-utils.ts'
 
 export interface RoutesContext {
@@ -64,38 +62,6 @@ function actualPathFromUrl(ctx: RoutesContext, actualUrl: string): string {
     : actualUrl
 }
 
-function reporterTitlePath(test: TestData): readonly string[] {
-  const testFile = test.location?.file
-  return ['', test.browser, testFile ?? '', ...test.titlePath, test.title]
-}
-
-function resolveApprovalTarget(ctx: RoutesContext, test: TestData, retry: number, imageName: string): string | null {
-  const testFile = test.location?.file
-  const declaration = test.results?.[retry]?.visualDeclarations?.find((candidate) => candidate.visualName === imageName)
-
-  if (ctx.approvalRouting === undefined || testFile === undefined || declaration === undefined) {
-    return null
-  }
-
-  const targets = resolveBaselineTargets({
-    testFile,
-    reporterTitlePath: reporterTitlePath(test),
-    declarations: [declaration],
-    config: {
-      configDir: ctx.approvalRouting.configDir,
-      testDir: ctx.approvalRouting.playwrightTestDir ?? dirname(testFile),
-      snapshotDir: ctx.approvalRouting.playwrightSnapshotDir ?? dirname(testFile),
-      projectName: test.browser,
-      snapshotSuffix: process.platform,
-      snapshotPathTemplate: ctx.approvalRouting.playwrightSnapshotPathTemplate,
-      toHaveScreenshotPathTemplate: ctx.approvalRouting.playwrightToHaveScreenshotPathTemplate,
-    },
-    snapshotPathExists: existsSync,
-  })
-
-  return targets.length === 1 ? (targets[0]?.snapshotPath ?? null) : null
-}
-
 async function handleApiApprove(ctx: RoutesContext, req: Request): Promise<Response> {
   try {
     const rawBody: unknown = await req.json()
@@ -116,7 +82,7 @@ async function handleApiApprove(ctx: RoutesContext, req: Request): Promise<Respo
       return Response.json({ success: false, error: 'Actual image not found' }, { status: 409 })
     }
 
-    const snapshotPath = resolveApprovalTarget(ctx, test, retry, image)
+    const snapshotPath = resolveBaselineSnapshotPath(ctx.approvalRouting, test, retry, image)
     if (snapshotPath === null) {
       return Response.json({ success: false, error: APPROVAL_TARGET_ERROR }, { status: 409 })
     }
@@ -169,7 +135,7 @@ function createBulkApprovalUpdates(ctx: RoutesContext): Array<Promise<BulkApprov
         return [Promise.resolve({ kind: 'unresolved' as const })]
       }
 
-      const snapshotPath = resolveApprovalTarget(ctx, test, lastRetry, imageName)
+      const snapshotPath = resolveBaselineSnapshotPath(ctx.approvalRouting, test, lastRetry, imageName)
       if (snapshotPath === null) {
         return [Promise.resolve({ kind: 'unresolved' as const })]
       }
@@ -283,8 +249,9 @@ export function handleHttpRequest(ctx: RoutesContext, req: Request): Promise<Res
     return handleApiImages(req)
   }
 
-  if (pathname.startsWith('/file/')) {
-    return handleFile(ctx, req)
+  const artifactResponse = handleArtifactRoute(ctx, req, pathname)
+  if (artifactResponse !== null) {
+    return artifactResponse
   }
 
   if (pathname.startsWith('/screenshots/')) {

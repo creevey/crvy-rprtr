@@ -713,6 +713,49 @@ describe('approval routing', () => {
   })
 })
 
+describe('GET /baseline', () => {
+  test('resolves and serves the baseline for a stored declaration', async () => {
+    await mkdir(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts'), { recursive: true })
+    await writeFile(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts', 'header.png'), 'baseline image')
+
+    const tests: Record<string, TestData> = {
+      'test-1': {
+        id: 'test-1',
+        title: 'visual pass',
+        titlePath: ['Suite'],
+        browser: 'chromium',
+        location: { file: TEST_FILE, line: 10 },
+        results: [
+          {
+            status: 'success',
+            retries: 0,
+            images: { header: { source: 'declared-only' } },
+            visualDeclarations: [
+              {
+                visualName: 'header',
+                kind: 'named',
+                declaredName: 'header',
+                snapshotBaseName: 'header',
+                occurrenceIndex: 1,
+              },
+            ],
+          },
+        ],
+      },
+    }
+
+    const res = await handleHttpRequest(createContext(tests), new Request('http://localhost/baseline/test-1/0/header'))
+
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('baseline image')
+  })
+
+  test('returns 404 when the test is unknown', async () => {
+    const res = await handleHttpRequest(createContext({}), new Request('http://localhost/baseline/missing/0/header'))
+    expect(res.status).toBe(404)
+  })
+})
+
 describe('GET /file', () => {
   const ROOT = join(TMP_DIR, 'allowed')
 

@@ -1,6 +1,9 @@
+import { existsSync } from 'fs'
 import { realpath } from 'fs/promises'
-import { resolve } from 'path'
+import { dirname, resolve } from 'path'
 
+import { resolveBaselineTargets } from '../snapshot-path-resolver.ts'
+import type { TestData } from '../types.ts'
 import { respondWithFile } from './file-utils.ts'
 import type { RoutesContext } from './routes.ts'
 import { isPathWithinRoots } from './utils.ts'
@@ -45,4 +48,77 @@ export async function handleFile(ctx: RoutesContext, req: Request): Promise<Resp
     // e.g. EISDIR when the resolved target is a directory inside an allowed root.
     return notFound()
   }
+}
+
+function reporterTitlePath(test: TestData): readonly string[] {
+  const testFile = test.location?.file
+  return ['', test.browser, testFile ?? '', ...test.titlePath, test.title]
+}
+
+type ApprovalRouting = RoutesContext['approvalRouting']
+
+export function resolveBaselineSnapshotPath(
+  routing: ApprovalRouting,
+  test: TestData,
+  retry: number,
+  imageName: string,
+): string | null {
+  const testFile = test.location?.file
+  const declaration = test.results?.[retry]?.visualDeclarations?.find((candidate) => candidate.visualName === imageName)
+
+  if (routing === undefined || testFile === undefined || declaration === undefined) {
+    return null
+  }
+
+  const targets = resolveBaselineTargets({
+    testFile,
+    reporterTitlePath: reporterTitlePath(test),
+    declarations: [declaration],
+    config: {
+      configDir: routing.configDir,
+      testDir: routing.playwrightTestDir ?? dirname(testFile),
+      snapshotDir: routing.playwrightSnapshotDir ?? dirname(testFile),
+      projectName: test.browser,
+      snapshotSuffix: process.platform,
+      snapshotPathTemplate: routing.playwrightSnapshotPathTemplate,
+      toHaveScreenshotPathTemplate: routing.playwrightToHaveScreenshotPathTemplate,
+    },
+    snapshotPathExists: existsSync,
+  })
+
+  return targets.length === 1 ? (targets[0]?.snapshotPath ?? null) : null
+}
+
+export async function handleBaseline(ctx: RoutesContext, req: Request): Promise<Response> {
+  const notFound = (): Response => new Response('Not Found', { status: 404 })
+  const segments = new URL(req.url).pathname.slice('/baseline/'.length).split('/')
+  const [testId, retryRaw, ...visualNameParts] = segments
+  if (testId === undefined || retryRaw === undefined || visualNameParts.length === 0) {
+    return notFound()
+  }
+
+  const retry = Number(retryRaw)
+  const visualName = decodeURIComponent(visualNameParts.join('/'))
+  const test = ctx.reportData.tests[testId]
+  if (test === undefined || !Number.isInteger(retry)) {
+    return notFound()
+  }
+
+  const snapshotPath = resolveBaselineSnapshotPath(ctx.approvalRouting, test, retry, visualName)
+  if (snapshotPath === null) {
+    return notFound()
+  }
+
+  const file = await respondWithFile(snapshotPath)
+  return file ?? notFound()
+}
+
+export function handleArtifactRoute(ctx: RoutesContext, req: Request, pathname: string): Promise<Response> | null {
+  if (pathname.startsWith('/file/')) {
+    return handleFile(ctx, req)
+  }
+  if (pathname.startsWith('/baseline/')) {
+    return handleBaseline(ctx, req)
+  }
+  return null
 }

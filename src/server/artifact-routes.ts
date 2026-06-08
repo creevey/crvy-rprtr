@@ -93,24 +93,33 @@ export async function handleBaseline(ctx: RoutesContext, req: Request): Promise<
   const notFound = (): Response => new Response('Not Found', { status: 404 })
   const segments = new URL(req.url).pathname.slice('/baseline/'.length).split('/')
   const [testId, retryRaw, ...visualNameParts] = segments
-  if (testId === undefined || retryRaw === undefined || visualNameParts.length === 0) {
+  if (testId === undefined || retryRaw === undefined || !/^\d+$/.test(retryRaw) || visualNameParts.length === 0) {
     return notFound()
   }
 
-  const retry = Number(retryRaw)
-  const visualName = decodeURIComponent(visualNameParts.join('/'))
+  let visualName: string
+  try {
+    visualName = decodeURIComponent(visualNameParts.join('/'))
+  } catch {
+    return notFound()
+  }
+
   const test = ctx.reportData.tests[testId]
-  if (test === undefined || !Number.isInteger(retry)) {
+  if (test === undefined) {
     return notFound()
   }
 
-  const snapshotPath = resolveBaselineSnapshotPath(ctx.approvalRouting, test, retry, visualName)
+  const snapshotPath = resolveBaselineSnapshotPath(ctx.approvalRouting, test, Number(retryRaw), visualName)
   if (snapshotPath === null) {
     return notFound()
   }
 
-  const file = await respondWithFile(snapshotPath)
-  return file ?? notFound()
+  try {
+    const file = await respondWithFile(snapshotPath)
+    return file ?? notFound()
+  } catch {
+    return notFound()
+  }
 }
 
 export function handleArtifactRoute(ctx: RoutesContext, req: Request, pathname: string): Promise<Response> | null {

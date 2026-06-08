@@ -754,6 +754,51 @@ describe('GET /baseline', () => {
     const res = await handleHttpRequest(createContext({}), new Request('http://localhost/baseline/missing/0/header'))
     expect(res.status).toBe(404)
   })
+
+  test('returns 404 for malformed percent-encoding in the visual name', async () => {
+    const res = await handleHttpRequest(createContext({}), new Request('http://localhost/baseline/test-1/0/%GG'))
+    expect(res.status).toBe(404)
+  })
+
+  test('returns 404 for a non-numeric retry segment', async () => {
+    const res = await handleHttpRequest(createContext({}), new Request('http://localhost/baseline/test-1/abc/header'))
+    expect(res.status).toBe(404)
+  })
+
+  test('returns 404 for an empty retry segment even when the baseline exists', async () => {
+    await mkdir(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts'), { recursive: true })
+    await writeFile(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts', 'header.png'), 'baseline image')
+
+    const tests: Record<string, TestData> = {
+      'test-1': {
+        id: 'test-1',
+        title: 'visual pass',
+        titlePath: ['Suite'],
+        browser: 'chromium',
+        location: { file: TEST_FILE, line: 10 },
+        results: [
+          {
+            status: 'success',
+            retries: 0,
+            images: { header: { source: 'declared-only' } },
+            visualDeclarations: [
+              {
+                visualName: 'header',
+                kind: 'named',
+                declaredName: 'header',
+                snapshotBaseName: 'header',
+                occurrenceIndex: 1,
+              },
+            ],
+          },
+        ],
+      },
+    }
+
+    // Double slash => empty retry segment. Must be rejected, not treated as retry 0.
+    const res = await handleHttpRequest(createContext(tests), new Request('http://localhost/baseline/test-1//header'))
+    expect(res.status).toBe(404)
+  })
 })
 
 describe('GET /file', () => {

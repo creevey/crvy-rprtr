@@ -36,7 +36,11 @@ export interface ServerOptions {
   /** Absolute path to the built web UI assets directory, or its parent directory */
   staticDir?: string
   configDir?: string
-  /** Absolute path to Playwright's outputDir (test-results), where failure artifacts are written */
+  /**
+   * Playwright's outputDir (test-results), where failure artifacts are written. Used as a root in
+   * the `/file` serving allowlist. Relative paths are resolved against the server's working
+   * directory, so start the server from the same directory the tests ran in.
+   */
   outputDir?: string
   playwrightTestDir?: string
   playwrightSnapshotDir?: string

@@ -212,6 +212,34 @@ describe('report-state approval metadata', () => {
     ])
   })
 
+  test('does not emit a phantom declared-only entry for a finalized unnamed screenshot', () => {
+    const state = createMutableReportState('./screenshots')
+
+    applyTestBeginEvent(state, {
+      id: 't1',
+      title: 'visual',
+      titlePath: ['Suite'],
+      browser: 'chromium',
+      location: { file: 'example.spec.ts', line: 1 },
+    })
+
+    applyTestEndEvent(state, {
+      id: 't1',
+      status: 'failed',
+      attachments: [
+        { name: 'Suite-visual-1-actual.png', path: 't1/Suite-visual-1-actual.png', contentType: 'image/png' },
+        { name: 'Suite-visual-1-expected.png', path: 't1/Suite-visual-1-expected.png', contentType: 'image/png' },
+        { name: 'Suite-visual-1-diff.png', path: 't1/Suite-visual-1-diff.png', contentType: 'image/png' },
+      ],
+      visualNames: ['Suite-visual-1'],
+      visualDeclarations: [{ visualName: 'Suite-visual-1', kind: 'unnamed', occurrenceIndex: 1 }],
+    })
+
+    const images = state.reportData.tests['t1']?.results?.[0]?.images ?? {}
+    expect(Object.keys(images)).toEqual(['Suite-visual-1'])
+    expect(images['Suite-visual-1']?.source).toBe('comparison')
+  })
+
   test('preserves approval metadata through event and report schema boundaries', () => {
     const state = createMutableReportState('./screenshots')
 

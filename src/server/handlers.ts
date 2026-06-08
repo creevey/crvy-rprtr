@@ -56,7 +56,9 @@ export function handleTestEnd(ctx: HandlerContext, data: TestEndData): void {
     return
   }
   const { test, diffCount } = result
-  enrichDeclaredBaselines(ctx, test)
+  if (data.status === 'passed') {
+    enrichDeclaredBaselines(ctx, test)
+  }
   const icon = data.status === 'passed' ? '✓' : data.status === 'skipped' ? '–' : '✗'
   const dur = data.duration === null || data.duration === undefined ? '' : ` (${data.duration}ms)`
   const diffNote = diffCount > 0 ? ` [${diffCount} diff(s)]` : ''

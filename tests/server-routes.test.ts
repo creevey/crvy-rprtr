@@ -1055,6 +1055,115 @@ describe('declared-only baseline enrichment', () => {
     expect(image?.source).toBe('baseline-only')
     expect(image?.expect).toBe(`/baseline/${encodeURIComponent('t1')}/0/${encodeURIComponent('header')}`)
   })
+
+  test('leaves the image declared-only when no baseline exists on disk', async () => {
+    // Use a slash-containing name so the resolver checks disk for both candidates.
+    // Neither candidate file is created, so resolution returns null and enrichment is skipped.
+    const app = await createServerApp({
+      screenshotDir: SCREENSHOT_DIR,
+      reportPath: join(TMP_DIR, 'report.json'),
+      configDir: process.cwd(),
+      playwrightTestDir: PLAYWRIGHT_TEST_DIR,
+      playwrightSnapshotDir: SNAPSHOT_DIR,
+      playwrightToHaveScreenshotPathTemplate: CUSTOM_TEMPLATE,
+    })
+
+    await app.handleWebSocketMessage(
+      JSON.stringify({
+        type: 'test-begin',
+        data: {
+          id: 't1',
+          title: 'visual pass',
+          titlePath: ['Suite'],
+          browser: 'chromium',
+          location: { file: TEST_FILE, line: 10 },
+        },
+      }),
+    )
+    await app.handleWebSocketMessage(
+      JSON.stringify({
+        type: 'test-end',
+        data: {
+          id: 't1',
+          status: 'passed',
+          attachments: [],
+          visualNames: ['dir/header'],
+          visualDeclarations: [
+            {
+              visualName: 'dir/header',
+              kind: 'named',
+              declaredName: 'dir/header',
+              snapshotBaseName: 'dir/header',
+              occurrenceIndex: 1,
+            },
+          ],
+        },
+      }),
+    )
+
+    const res = await app.handleRequest(new Request('http://localhost/api/report'))
+    const body = (await res.json()) as {
+      tests: Record<string, { results: { images: Record<string, { expect?: string; source?: string }> }[] }>
+    }
+    const image = body.tests['t1']?.results?.[0]?.images?.['dir/header']
+    expect(image?.source).toBe('declared-only')
+    expect(image?.expect).toBeUndefined()
+  })
+
+  test('does not enrich a declared-only image when the test status is failed', async () => {
+    await mkdir(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts'), { recursive: true })
+    await writeFile(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts', 'header.png'), 'baseline image')
+
+    const app = await createServerApp({
+      screenshotDir: SCREENSHOT_DIR,
+      reportPath: join(TMP_DIR, 'report.json'),
+      configDir: process.cwd(),
+      playwrightTestDir: PLAYWRIGHT_TEST_DIR,
+      playwrightSnapshotDir: SNAPSHOT_DIR,
+      playwrightToHaveScreenshotPathTemplate: CUSTOM_TEMPLATE,
+    })
+
+    await app.handleWebSocketMessage(
+      JSON.stringify({
+        type: 'test-begin',
+        data: {
+          id: 't1',
+          title: 'visual pass',
+          titlePath: ['Suite'],
+          browser: 'chromium',
+          location: { file: TEST_FILE, line: 10 },
+        },
+      }),
+    )
+    await app.handleWebSocketMessage(
+      JSON.stringify({
+        type: 'test-end',
+        data: {
+          id: 't1',
+          status: 'failed',
+          attachments: [],
+          visualNames: ['header'],
+          visualDeclarations: [
+            {
+              visualName: 'header',
+              kind: 'named',
+              declaredName: 'header',
+              snapshotBaseName: 'header',
+              occurrenceIndex: 1,
+            },
+          ],
+        },
+      }),
+    )
+
+    const res = await app.handleRequest(new Request('http://localhost/api/report'))
+    const body = (await res.json()) as {
+      tests: Record<string, { results: { images: Record<string, { expect?: string; source?: string }> }[] }>
+    }
+    const image = body.tests['t1']?.results?.[0]?.images?.['header']
+    expect(image?.source).toBe('declared-only')
+    expect(image?.expect).toBeUndefined()
+  })
 })
 
 describe('isPathWithinRoots', () => {

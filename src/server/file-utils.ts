@@ -90,7 +90,10 @@ export async function respondWithFile(filePath: string, contentType?: string): P
   try {
     const file = await readFile(filePath)
     const resolvedContentType = contentType ?? inferContentType(filePath)
-    const headers = resolvedContentType === undefined ? undefined : { 'Content-Type': resolvedContentType }
+    const headers: Record<string, string> = { 'X-Content-Type-Options': 'nosniff' }
+    if (resolvedContentType !== undefined) {
+      headers['Content-Type'] = resolvedContentType
+    }
     return new Response(file, { headers })
   } catch (error) {
     if (isFileNotFound(error)) {

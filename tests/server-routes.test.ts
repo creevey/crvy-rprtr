@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { mkdir, readFile, rm, writeFile } from 'fs/promises'
+import { mkdir, readFile, rm, symlink, writeFile } from 'fs/promises'
 import { join } from 'path'
 
 import { createServerApp } from '../src/server/app'
@@ -739,6 +739,32 @@ describe('GET /file', () => {
       ctx,
       new Request(`http://localhost/file/${encodeURIComponent(join(TMP_DIR, 'secret.png'))}`),
     )
+
+    expect(res.status).toBe(404)
+  })
+
+  test('returns 404 for a missing file inside an allowed root', async () => {
+    await mkdir(ROOT, { recursive: true })
+    const ctx = { ...createContext({}), artifactRoots: [ROOT] }
+
+    const res = await handleHttpRequest(
+      ctx,
+      new Request(`http://localhost/file/${encodeURIComponent(join(ROOT, 'does-not-exist.png'))}`),
+    )
+
+    expect(res.status).toBe(404)
+  })
+
+  test('returns 404 for a symlink inside an allowed root that escapes to outside', async () => {
+    await mkdir(ROOT, { recursive: true })
+    await mkdir(TMP_DIR, { recursive: true })
+    await writeFile(join(TMP_DIR, 'outside-secret.png'), 'outside-secret')
+    // symlink inside ROOT pointing to a file outside ROOT
+    const symlinkPath = join(ROOT, 'escape.png')
+    await symlink(join(TMP_DIR, 'outside-secret.png'), symlinkPath)
+    const ctx = { ...createContext({}), artifactRoots: [ROOT] }
+
+    const res = await handleHttpRequest(ctx, new Request(`http://localhost/file/${encodeURIComponent(symlinkPath)}`))
 
     expect(res.status).toBe(404)
   })

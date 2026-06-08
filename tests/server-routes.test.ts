@@ -765,6 +765,40 @@ describe('GET /baseline', () => {
     expect(res.status).toBe(404)
   })
 
+  test('returns 404 for an empty visual name (trailing slash)', async () => {
+    await mkdir(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts'), { recursive: true })
+    await writeFile(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts', 'header.png'), 'baseline image')
+
+    const tests: Record<string, TestData> = {
+      'test-1': {
+        id: 'test-1',
+        title: 'visual pass',
+        titlePath: ['Suite'],
+        browser: 'chromium',
+        location: { file: TEST_FILE, line: 10 },
+        results: [
+          {
+            status: 'success',
+            retries: 0,
+            images: { header: { source: 'declared-only' } },
+            visualDeclarations: [
+              {
+                visualName: 'header',
+                kind: 'named',
+                declaredName: 'header',
+                snapshotBaseName: 'header',
+                occurrenceIndex: 1,
+              },
+            ],
+          },
+        ],
+      },
+    }
+
+    const res = await handleHttpRequest(createContext(tests), new Request('http://localhost/baseline/test-1/0/'))
+    expect(res.status).toBe(404)
+  })
+
   test('returns 404 for an empty retry segment even when the baseline exists', async () => {
     await mkdir(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts'), { recursive: true })
     await writeFile(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts', 'header.png'), 'baseline image')
@@ -855,6 +889,21 @@ describe('GET /file', () => {
     const res = await handleHttpRequest(ctx, new Request(`http://localhost/file/${encodeURIComponent(symlinkPath)}`))
 
     expect(res.status).toBe(404)
+  })
+
+  test('sets X-Content-Type-Options: nosniff on served files', async () => {
+    const root = join(TMP_DIR, 'allowed')
+    await mkdir(root, { recursive: true })
+    await writeFile(join(root, 'h.png'), 'bytes')
+    const ctx = { ...createContext({}), artifactRoots: [root] }
+
+    const res = await handleHttpRequest(
+      ctx,
+      new Request(`http://localhost/file/${encodeURIComponent(join(root, 'h.png'))}`),
+    )
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff')
   })
 })
 

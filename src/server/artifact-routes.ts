@@ -91,14 +91,18 @@ export function resolveBaselineSnapshotPath(
 
 export async function handleBaseline(ctx: RoutesContext, req: Request): Promise<Response> {
   const notFound = (): Response => new Response('Not Found', { status: 404 })
-  const segments = new URL(req.url).pathname.slice('/baseline/'.length).split('/')
-  const [testId, retryRaw, ...visualNameParts] = segments
-  if (testId === undefined || retryRaw === undefined || !/^\d+$/.test(retryRaw) || visualNameParts.length === 0) {
-    return notFound()
-  }
 
+  let testId: string
+  let retry: number
   let visualName: string
   try {
+    const segments = new URL(req.url).pathname.slice('/baseline/'.length).split('/')
+    const [rawTestId, retryRaw, ...visualNameParts] = segments
+    if (rawTestId === undefined || retryRaw === undefined || !/^\d+$/.test(retryRaw) || visualNameParts.length === 0) {
+      return notFound()
+    }
+    testId = decodeURIComponent(rawTestId)
+    retry = Number(retryRaw)
     visualName = decodeURIComponent(visualNameParts.join('/'))
   } catch {
     return notFound()
@@ -109,7 +113,7 @@ export async function handleBaseline(ctx: RoutesContext, req: Request): Promise<
     return notFound()
   }
 
-  const snapshotPath = resolveBaselineSnapshotPath(ctx.approvalRouting, test, Number(retryRaw), visualName)
+  const snapshotPath = resolveBaselineSnapshotPath(ctx.approvalRouting, test, retry, visualName)
   if (snapshotPath === null) {
     return notFound()
   }

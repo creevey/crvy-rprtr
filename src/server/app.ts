@@ -5,14 +5,16 @@ import pLimit from 'p-limit'
 
 import { findOfflineReportPaths, mergeOfflineReportsIntoTests, parseOfflineReport } from '../offline-reports.ts'
 import {
+  IncomingWebSocketMessageSchema,
   LoadedReportDataSchema,
+  RunEndDataSchema,
   TestBeginDataSchema,
   TestEndDataSchema,
-  WebSocketMessageSchema,
   safeParse,
+  type IncomingWebSocketMessage,
 } from '../schemas.ts'
 import type { OfflineReport } from '../schemas.ts'
-import type { TestData, WebSocketMessage } from '../types.ts'
+import type { TestData } from '../types.ts'
 import { fileExists, isDirectory, readJsonFile, writeJsonFile } from './file-utils.ts'
 import {
   handleTestBegin,
@@ -136,7 +138,7 @@ async function loadOfflineReports(offlineReportDir: string, reportData: ReportDa
   })
 }
 
-async function handleParsedWebSocketMessage(ctx: HandlerContext, msg: WebSocketMessage): Promise<void> {
+async function handleParsedWebSocketMessage(ctx: HandlerContext, msg: IncomingWebSocketMessage): Promise<void> {
   switch (msg.type) {
     case 'test-begin': {
       const parsed = safeParse(TestBeginDataSchema, msg.data)
@@ -158,9 +160,15 @@ async function handleParsedWebSocketMessage(ctx: HandlerContext, msg: WebSocketM
       handleTestEnd(ctx, parsed)
       break
     }
-    case 'run-end':
-      await handleRunEnd(ctx, msg.data)
+    case 'run-end': {
+      const parsed = safeParse(RunEndDataSchema, msg.data)
+      if (parsed === null) {
+        console.error('Invalid run-end message data', msg.data)
+        break
+      }
+      await handleRunEnd(ctx, parsed)
       break
+    }
     case 'approve':
       handleApprove()
       break
@@ -174,7 +182,7 @@ function createWebSocketMessageHandler(getHandlerContext: () => HandlerContext):
   return async function handleWebSocketMessage(message: string): Promise<void> {
     try {
       const parsed: unknown = JSON.parse(message)
-      const wsMessage = safeParse(WebSocketMessageSchema, parsed)
+      const wsMessage = safeParse(IncomingWebSocketMessageSchema, parsed)
       if (wsMessage === null) {
         console.error('Invalid WebSocket message: missing or invalid type', parsed)
         return

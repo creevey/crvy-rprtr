@@ -72,6 +72,23 @@ export interface WebSocketMessage {
   data: unknown
 }
 
+export interface WebSocketRunEndData {
+  status: 'passed' | 'failed' | 'skipped'
+  removedTestIds: string[]
+}
+
+export interface WebSocketSyncData {
+  tests: Record<string, TestData>
+  isUpdateMode?: boolean
+}
+
+export type ClientWebSocketMessage =
+  | { type: 'test-begin'; data: TestData }
+  | { type: 'test-update'; data: TestData }
+  | { type: 'run-end'; data: WebSocketRunEndData }
+  | { type: 'sync'; data: WebSocketSyncData }
+  | { type: 'approve'; data: unknown }
+
 export interface TestBeginMessage {
   type: 'test-begin'
   data: {

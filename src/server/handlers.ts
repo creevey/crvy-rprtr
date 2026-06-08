@@ -1,6 +1,6 @@
 import { applyTestBeginEvent, applyTestEndEvent, finalizeRunEvent } from '../report-state.ts'
 import type { TestBeginData, TestEndData } from '../schemas.ts'
-import type { TestData, WebSocketMessage } from '../types.ts'
+import type { ClientWebSocketMessage, TestData } from '../types.ts'
 import { broadcastToBrowsers } from './utils.ts'
 import type { RuntimeWebSocket } from './ws.ts'
 
@@ -21,27 +21,39 @@ export function handleTestBegin(ctx: HandlerContext, data: TestBeginData): void 
   const test = applyTestBeginEvent(ctx, data)
   ctx.reportData.isRunning = true
   console.log(`  ▶ [${test.browser ?? '?'}] ${test.title}`)
-  broadcastToBrowsers(ctx.wsClients, { type: 'test-begin', data })
+  const message: ClientWebSocketMessage = { type: 'test-begin', data: test }
+  broadcastToBrowsers(ctx.wsClients, message)
 }
 
 export function handleTestEnd(ctx: HandlerContext, data: TestEndData): void {
   const result = applyTestEndEvent(ctx, data)
-  if (result !== null) {
-    const { test, diffCount } = result
-    const icon = data.status === 'passed' ? '✓' : data.status === 'skipped' ? '–' : '✗'
-    const dur = data.duration === null || data.duration === undefined ? '' : ` (${data.duration}ms)`
-    const diffNote = diffCount > 0 ? ` [${diffCount} diff(s)]` : ''
-    const errNote = data.error !== null && data.error !== undefined ? `\n    Error: ${data.error}` : ''
-    console.log(`  ${icon} [${test.browser}] ${test.title}${dur}${diffNote}${errNote}`)
+  if (result === null) {
+    console.error('[Server] test-end for unknown test id:', data.id)
+    return
   }
-  broadcastToBrowsers(ctx.wsClients, { type: 'test-update', data })
+  const { test, diffCount } = result
+  const icon = data.status === 'passed' ? '✓' : data.status === 'skipped' ? '–' : '✗'
+  const dur = data.duration === null || data.duration === undefined ? '' : ` (${data.duration}ms)`
+  const diffNote = diffCount > 0 ? ` [${diffCount} diff(s)]` : ''
+  const errNote = data.error !== null && data.error !== undefined ? `\n    Error: ${data.error}` : ''
+  console.log(`  ${icon} [${test.browser}] ${test.title}${dur}${diffNote}${errNote}`)
+  const message: ClientWebSocketMessage = { type: 'test-update', data: test }
+  broadcastToBrowsers(ctx.wsClients, message)
 }
 
-export async function handleRunEnd(ctx: HandlerContext, data: WebSocketMessage['data']): Promise<void> {
+export async function handleRunEnd(
+  ctx: HandlerContext,
+  data: { status: 'passed' | 'failed' | 'skipped' },
+): Promise<void> {
+  const removedTestIds = Object.keys(ctx.reportData.tests).filter((id) => !ctx.currentRunIds.has(id))
   const { passed, failed, pending } = finalizeRunEvent(ctx)
   await ctx.saveReport()
   console.log(`\nRun complete — ${passed} passed, ${failed} failed, ${pending} skipped`)
-  broadcastToBrowsers(ctx.wsClients, { type: 'run-end', data })
+  const message: ClientWebSocketMessage = {
+    type: 'run-end',
+    data: { status: data.status, removedTestIds },
+  }
+  broadcastToBrowsers(ctx.wsClients, message)
 }
 
 export function handleApprove(): void {
@@ -53,5 +65,12 @@ export function handleApprove(): void {
 export function handleSync(ctx: HandlerContext): void {
   // Sync messages request a state synchronization
   console.log('[Server] Received sync message')
-  broadcastToBrowsers(ctx.wsClients, { type: 'sync', data: ctx.reportData })
+  const message: ClientWebSocketMessage = {
+    type: 'sync',
+    data: {
+      tests: ctx.reportData.tests,
+      isUpdateMode: ctx.reportData.isUpdateMode,
+    },
+  }
+  broadcastToBrowsers(ctx.wsClients, message)
 }

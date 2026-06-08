@@ -119,10 +119,35 @@ export const CrvyRprtrSuiteSchema: z.ZodType<CrvyRprtrSuite> = z.lazy(() =>
 )
 
 // WebSocket message types
-export const WebSocketMessageSchema = z.object({
+
+// Incoming: reporter -> server. data is parsed per-type by the handler.
+export const IncomingWebSocketMessageSchema = z.object({
   type: z.enum(['test-begin', 'test-end', 'run-end', 'approve', 'sync']),
   data: z.unknown(),
 })
+export type IncomingWebSocketMessage = z.infer<typeof IncomingWebSocketMessageSchema>
+
+// Outgoing: server -> client. data carries fully-resolved test data so the
+// client can apply updates incrementally without re-fetching /api/report.
+export const WebSocketMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('test-begin'), data: TestDataSchema }),
+  z.object({ type: z.literal('test-update'), data: TestDataSchema }),
+  z.object({
+    type: z.literal('run-end'),
+    data: z.object({
+      status: z.enum(['passed', 'failed', 'skipped']),
+      removedTestIds: z.array(z.string()),
+    }),
+  }),
+  z.object({
+    type: z.literal('sync'),
+    data: z.object({
+      tests: z.record(z.string(), TestDataSchema),
+      isUpdateMode: z.boolean().optional(),
+    }),
+  }),
+  z.object({ type: z.literal('approve'), data: z.unknown() }),
+])
 
 export type WebSocketMessage = z.infer<typeof WebSocketMessageSchema>
 
@@ -152,6 +177,12 @@ export const TestEndDataSchema = z.object({
 })
 
 export type TestEndData = z.infer<typeof TestEndDataSchema>
+
+// Run end data schema (reporter -> server)
+export const RunEndDataSchema = z.object({
+  status: z.enum(['passed', 'failed', 'skipped']),
+})
+export type RunEndData = z.infer<typeof RunEndDataSchema>
 
 // Report data schema
 export const ReportDataSchema = z.object({

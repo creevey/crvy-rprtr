@@ -18,11 +18,12 @@
     hasScreenshots,
     recalcSuiteStatuses,
     recalcAllSuiteStatuses,
-    treeifyTests,
-    mergeTreeState,
+    syncTreeState,
+    collectTestsById,
     type CrvyRprtrViewFilter,
   } from './helpers';  
-  import type { TestData } from '../types';
+  import type { ClientWebSocketMessage, TestData } from '../types';
+  import { WebSocketMessageSchema, safeParse } from '../schemas';
   import { getViewMode } from './viewMode';
   import Sidebar from './components/Sidebar.svelte';
   import ResultsPage from './components/ResultsPage.svelte';
@@ -309,28 +310,49 @@
     const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${wsProtocol}//${location.host}`);
 
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    const refresh = async (): Promise<void> => {
+    const handleMessage = (event: MessageEvent): void => {
       try {
-        const response = await fetch('/api/report');
-        const data = (await response.json()) as { tests: Record<string, TestData> };
-        const newTree = treeifyTests(data.tests);
-        mergeTreeState(newTree, tests);
-        tests = newTree;
+        const raw: unknown = JSON.parse(event.data);
+        const msg = safeParse(WebSocketMessageSchema, raw);
+        if (msg === null) return;
+        applyClientMessage(msg);
       } catch {
-        // ignore transient fetch errors
+        // ignore parse errors
       }
     };
 
-    ws.onmessage = (): void => {
-      clearTimeout(timer);
-      timer = setTimeout(refresh, 50);
+    const applyClientMessage = (msg: ClientWebSocketMessage): void => {
+      switch (msg.type) {
+        case 'test-begin':
+        case 'test-update': {
+          syncTreeState(tests, { [msg.data.id]: msg.data });
+          break;
+        }
+        case 'run-end': {
+          if (msg.data.removedTestIds.length === 0) break;
+          const current = collectTestsById(tests);
+          const next: Record<string, TestData> = {};
+          const removed = new Set(msg.data.removedTestIds);
+          for (const [id, data] of Object.entries(current)) {
+            if (!removed.has(id)) next[id] = data;
+          }
+          syncTreeState(tests, next);
+          break;
+        }
+        case 'sync': {
+          syncTreeState(tests, msg.data.tests);
+          break;
+        }
+        case 'approve':
+          // No-op: approvals go through HTTP /api/approve.
+          break;
+      }
     };
+
+    ws.onmessage = handleMessage;
 
     return (): void => {
       ws.close();
-      clearTimeout(timer);
     };
   });
 </script>

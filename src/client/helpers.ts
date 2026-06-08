@@ -19,6 +19,8 @@ export {
   mergeTreeState,
 } from './helpers/path'
 
+export { syncTreeState, collectTestsById } from './helpers/tree-sync'
+
 export {
   checkSuite,
   openSuite,

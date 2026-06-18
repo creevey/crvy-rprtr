@@ -52,7 +52,12 @@ export async function handleFile(ctx: RoutesContext, req: Request): Promise<Resp
 
 function reporterTitlePath(test: TestData): readonly string[] {
   const testFile = test.location?.file
-  return ['', test.browser, testFile ?? '', ...test.titlePath, test.title]
+  // Index 1 must match the raw Playwright project name ("" for the default
+  // project) so the snapshot resolver produces paths Playwright itself used.
+  // `projectName` is undefined for data from older reporters; fall back to
+  // `browser`, which those reporters populated with the raw project name.
+  const projectName = test.projectName ?? test.browser
+  return ['', projectName, testFile ?? '', ...test.titlePath, test.title]
 }
 
 export type ApprovalRouting = RoutesContext['approvalRouting']
@@ -78,7 +83,7 @@ export function resolveBaselineSnapshotPath(
       configDir: routing.configDir,
       testDir: routing.playwrightTestDir ?? dirname(testFile),
       snapshotDir: routing.playwrightSnapshotDir ?? dirname(testFile),
-      projectName: test.browser,
+      projectName: test.projectName ?? test.browser,
       snapshotSuffix: process.platform,
       snapshotPathTemplate: routing.playwrightSnapshotPathTemplate,
       toHaveScreenshotPathTemplate: routing.playwrightToHaveScreenshotPathTemplate,

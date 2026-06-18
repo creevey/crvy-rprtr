@@ -41,6 +41,13 @@ export interface TestData {
   id: string
   titlePath: string[]
   browser: string
+  /**
+   * Raw Playwright project name. Used for snapshot path resolution so the
+   * resolver matches what Playwright itself used when storing baselines
+   * (empty string for the implicit default project). Undefined for data
+   * produced by older reporters; consumers fall back to `browser`.
+   */
+  projectName?: string
   title: string
   skip?: boolean | string
   retries?: number
@@ -96,6 +103,7 @@ export interface TestBeginMessage {
     title: string
     titlePath: string[]
     browser: string
+    projectName?: string
     location: Location
   }
 }

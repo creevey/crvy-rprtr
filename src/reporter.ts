@@ -2,7 +2,15 @@ import { existsSync } from 'fs'
 import { mkdir } from 'fs/promises'
 import { dirname, join } from 'path'
 
-import type { FullConfig, FullResult, Reporter, Suite, TestCase, TestResult } from '@playwright/test/reporter'
+import type {
+  FullConfig,
+  FullProject,
+  FullResult,
+  Reporter,
+  Suite,
+  TestCase,
+  TestResult,
+} from '@playwright/test/reporter'
 import pLimit from 'p-limit'
 
 import { isCI } from './ci.ts'
@@ -127,13 +135,28 @@ export class CrvyRprtr implements Reporter {
     return titlePath
   }
 
+  /** Resolves a non-empty browser label for UI display, falling back to the
+   * configured browser engine since the raw project `name` is `""` for the
+   * default project and devices spread `defaultBrowserType` into `use`. */
+  private resolveBrowserLabel(project: FullProject | undefined): string {
+    const name = project?.name
+    if (name !== undefined && name !== '') return name
+    const browserName = project?.use?.browserName
+    if (browserName !== undefined) return browserName
+    const defaultBrowserType = project?.use?.defaultBrowserType
+    if (defaultBrowserType !== undefined) return defaultBrowserType
+    return 'chromium'
+  }
+
   private reporterTitlePath(test: TestCase): string[] {
+    // Index 1 is the raw Playwright project name ("" for the default project).
     return typeof test.titlePath === 'function'
       ? test.titlePath()
-      : ['', test.parent.project()?.name ?? 'chromium', test.location.file, ...this.describeTitlePath(test), test.title]
+      : ['', test.parent.project()?.name ?? '', test.location.file, ...this.describeTitlePath(test), test.title]
   }
 
   onTestBegin(test: TestCase): void {
+    const project = test.parent.project()
     this.testMetadata.set(test.id, {
       reporterTitlePath: this.reporterTitlePath(test),
     })
@@ -143,7 +166,8 @@ export class CrvyRprtr implements Reporter {
         id: test.id,
         title: test.title,
         titlePath: this.describeTitlePath(test),
-        browser: test.parent.project()?.name ?? 'chromium',
+        browser: this.resolveBrowserLabel(project),
+        projectName: project?.name ?? '',
         location: { file: test.location.file, line: test.location.line },
       },
     })

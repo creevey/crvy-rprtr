@@ -17,6 +17,8 @@ export {
   parseFilterString,
   treeifyTests,
   mergeTreeState,
+  DEFAULT_BROWSER_KEY,
+  browserKeyFor,
 } from './helpers/path'
 
 export { syncTreeState, collectTestsById } from './helpers/tree-sync'

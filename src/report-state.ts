@@ -102,12 +102,16 @@ export function createMutableReportState(screenshotDir = './screenshots'): Mutab
 }
 
 export function applyTestBeginEvent(state: MutableReportState, data: TestBeginData): TestData {
-  const { id, title, titlePath, browser, location } = data
+  const { id, title, titlePath, browser, projectName, location } = data
   state.currentRunIds.add(id)
   state.reportData.tests[id] ??= {
     id,
     titlePath: titlePath ?? [],
     browser: browser ?? '',
+    // Older reporters sent the raw project name in `browser` and had no
+    // `projectName` field. Preserve that value for snapshot path resolution
+    // when loading data produced by such reporters.
+    projectName: projectName ?? browser ?? '',
     title: title ?? '',
     location,
     status: 'running',

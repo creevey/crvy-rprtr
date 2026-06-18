@@ -7,7 +7,7 @@ import {
   getChildrenArray,
   getChildrenKeys,
 } from '../../types'
-import { getSuiteByPath } from './path'
+import { browserKeyFor, getSuiteByPath } from './path'
 import { calcStatus } from './status'
 import { isTestDataEqual, copyMutableFields } from './test-equality'
 
@@ -48,8 +48,8 @@ export function collectTestsById(suite: CrvyRprtrSuite): Record<string, TestData
 function pathTokensFor(test: TestData): { suitePath: string[]; browserKey: string } | null {
   const titlePath = test.titlePath ?? []
   const title = test.title
-  const browser = test.browser ?? ''
-  if (title === undefined || title === '' || browser === '') return null
+  if (title === undefined || title === '') return null
+  const browser = browserKeyFor(test.browser ?? '')
   const pathParts: string[] = [...titlePath, title, browser].filter((p): p is string => p !== undefined && p !== '')
   const reversed = pathParts.reverse()
   const browserKey = reversed[0]

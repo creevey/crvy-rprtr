@@ -75,6 +75,7 @@ export const TestDataSchema = z.object({
   id: z.string(),
   titlePath: z.array(z.string()),
   browser: z.string(),
+  projectName: z.string().optional(),
   title: z.string(),
   skip: z.union([z.boolean(), z.string()]).optional(),
   retries: z.number().optional(),
@@ -157,6 +158,7 @@ export const TestBeginDataSchema = z.object({
   title: z.string(),
   titlePath: z.array(z.string()),
   browser: z.string(),
+  projectName: z.string().optional(),
   location: LocationSchema,
 })
 

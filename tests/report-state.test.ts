@@ -187,6 +187,62 @@ describe('report-state visual classification', () => {
     expect(passedImage?.actual).toBeUndefined()
     expect(passedImage?.source).toBe('declared-only')
   })
+
+  test('strips stale actual and diff fields from a previously mixed-source baseline-only image', () => {
+    const state = createMutableReportState('./screenshots')
+
+    applyTestBeginEvent(state, {
+      id: 't-mixed',
+      title: 'visual',
+      titlePath: ['Suite'],
+      browser: 'chromium',
+      location: { file: 'tests/example.spec.ts', line: 10 },
+    })
+
+    applyTestEndEvent(state, {
+      id: 't-mixed',
+      status: 'passed',
+      attachments: [
+        {
+          name: 'header-expected',
+          path: 't-mixed/header-expected',
+          contentType: 'image/png',
+        },
+      ],
+      visualNames: ['header'],
+    })
+
+    // Simulate a polluted prior record (e.g. legacy report loaded from disk that
+    // carries both an expect URL and a stale actual URL from a previous failure).
+    const testRecord = state.reportData.tests['t-mixed']
+    const priorImage = testRecord?.results?.[0]?.images?.['header']
+    expect(priorImage).toBeDefined()
+    if (priorImage !== undefined) {
+      priorImage.actual = '/file/%2Ftmp%2Ftest-results%2Ft-mixed%2Fheader-actual.png'
+      priorImage.diff = '/file/%2Ftmp%2Ftest-results%2Ft-mixed%2Fheader-diff.png'
+    }
+
+    applyTestBeginEvent(state, {
+      id: 't-mixed',
+      title: 'visual',
+      titlePath: ['Suite'],
+      browser: 'chromium',
+      location: { file: 'tests/example.spec.ts', line: 10 },
+    })
+
+    applyTestEndEvent(state, {
+      id: 't-mixed',
+      status: 'passed',
+      attachments: [],
+      visualNames: ['header'],
+    })
+
+    const preserved = state.reportData.tests['t-mixed']?.results?.[0]?.images?.['header']
+    expect(preserved?.source).toBe('baseline-only')
+    expect(preserved?.expect).toBe('/screenshots/t-mixed/header-expected')
+    expect(preserved?.actual).toBeUndefined()
+    expect(preserved?.diff).toBeUndefined()
+  })
 })
 
 describe('report-state approval metadata', () => {

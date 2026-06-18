@@ -72,8 +72,8 @@ function preservePreviousPassingImages(
     return {
       ...currentImages,
       [name]: {
-        ...previousImage,
-        source: previousImage.source ?? classifyImage(previousImage),
+        expect: previousImage.expect,
+        source: 'baseline-only',
       },
     }
   }, images)

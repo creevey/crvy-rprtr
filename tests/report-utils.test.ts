@@ -28,3 +28,9 @@ test('attachmentsToImages routes absolute diff paths to /file URLs', () => {
   const images = attachmentsToImages([{ name: 'shot-diff.png', path: abs, contentType: 'image/png' }])
   expect(images['shot']?.diff).toBe(`/file/${encodeURIComponent(abs)}`)
 })
+
+test('attachmentsToImages routes Windows-style absolute paths to /file on a POSIX host', () => {
+  const windowsPath = 'C:\\work-projects\\test-results\\shot-actual.png'
+  const images = attachmentsToImages([{ name: 'shot-actual.png', path: windowsPath, contentType: 'image/png' }])
+  expect(images['shot']?.actual).toBe(`/file/${encodeURIComponent(windowsPath)}`)
+})

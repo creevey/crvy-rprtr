@@ -1,5 +1,4 @@
-import { isAbsolute } from 'path'
-
+import { isAnyAbsolutePath } from './path-utils.ts'
 import type { ScreenshotDeclaration } from './reporter-utils.ts'
 import type { Attachment } from './schemas.ts'
 import type { Images, TestData, VisualSource } from './types.ts'
@@ -69,7 +68,7 @@ export function attachmentsToImages(
     const role = match[2]
     if (baseName === null || baseName === undefined || role === null || role === undefined) continue
     images[baseName] ??= {}
-    const url = isAbsolute(attachment.path)
+    const url = isAnyAbsolutePath(attachment.path)
       ? `/file/${encodeURIComponent(attachment.path)}`
       : `${baseUrl}${attachment.path}`
     const img = images[baseName]

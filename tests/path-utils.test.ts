@@ -15,6 +15,7 @@ describe('isAnyAbsolutePath', () => {
 
   test('recognises UNC paths', () => {
     expect(isAnyAbsolutePath('\\\\server\\share\\test.png')).toBe(true)
+    expect(isAnyAbsolutePath('//server/share/test.png')).toBe(true)
   })
 
   test('rejects relative paths', () => {

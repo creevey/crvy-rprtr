@@ -1275,6 +1275,120 @@ describe('declared-only baseline enrichment', () => {
     expect(image?.source).toBe('declared-only')
     expect(image?.expect).toBeUndefined()
   })
+
+  test('a failed run superseded by a passed run enriches to /baseline without stale actual', async () => {
+    await mkdir(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts'), { recursive: true })
+    await writeFile(join(SNAPSHOT_DIR, 'chromium', 'example.spec.ts', 'header.png'), 'baseline image')
+
+    const app = await createServerApp({
+      screenshotDir: SCREENSHOT_DIR,
+      reportPath: join(TMP_DIR, 'report.json'),
+      configDir: process.cwd(),
+      playwrightTestDir: PLAYWRIGHT_TEST_DIR,
+      playwrightSnapshotDir: SNAPSHOT_DIR,
+      playwrightToHaveScreenshotPathTemplate: CUSTOM_TEMPLATE,
+    })
+
+    // Run 1: failed. Playwright attachment: just an actual at an absolute test-results path.
+    // In real life this is what Playwright emits on first-run baseline creation.
+    await app.handleWebSocketMessage(
+      JSON.stringify({
+        type: 'test-begin',
+        data: {
+          id: 't-failed-then-passed',
+          title: 'visual pass',
+          titlePath: ['Suite'],
+          browser: 'chromium',
+          location: { file: TEST_FILE, line: 10 },
+        },
+      }),
+    )
+    await app.handleWebSocketMessage(
+      JSON.stringify({
+        type: 'test-end',
+        data: {
+          id: 't-failed-then-passed',
+          status: 'failed',
+          attachments: [
+            {
+              name: 'header-actual.png',
+              path: '/tmp/test-results/t-failed-then-passed/header-actual.png',
+              contentType: 'image/png',
+            },
+          ],
+          visualNames: ['header'],
+          visualDeclarations: [
+            {
+              visualName: 'header',
+              kind: 'named',
+              declaredName: 'header',
+              snapshotBaseName: 'header',
+              occurrenceIndex: 1,
+            },
+          ],
+        },
+      }),
+    )
+
+    // Sanity: after the failed run the image is a comparison with an /file actual.
+    const afterFailed = (await (await app.handleRequest(new Request('http://localhost/api/report'))).json()) as {
+      tests: Record<string, { results: { images: Record<string, { actual?: string; source?: string }> }[] }>
+    }
+    const failedImage = afterFailed.tests['t-failed-then-passed']?.results?.[0]?.images?.['header']
+    expect(failedImage?.source).toBe('comparison')
+    expect(failedImage?.actual).toContain('/file/')
+
+    // Run 2: passed, no attachments. Playwright wipes test-results before running.
+    await app.handleWebSocketMessage(
+      JSON.stringify({
+        type: 'test-begin',
+        data: {
+          id: 't-failed-then-passed',
+          title: 'visual pass',
+          titlePath: ['Suite'],
+          browser: 'chromium',
+          location: { file: TEST_FILE, line: 10 },
+        },
+      }),
+    )
+    await app.handleWebSocketMessage(
+      JSON.stringify({
+        type: 'test-end',
+        data: {
+          id: 't-failed-then-passed',
+          status: 'passed',
+          attachments: [],
+          visualNames: ['header'],
+          visualDeclarations: [
+            {
+              visualName: 'header',
+              kind: 'named',
+              declaredName: 'header',
+              snapshotBaseName: 'header',
+              occurrenceIndex: 1,
+            },
+          ],
+        },
+      }),
+    )
+
+    const afterPassed = (await (await app.handleRequest(new Request('http://localhost/api/report'))).json()) as {
+      tests: Record<
+        string,
+        {
+          results: {
+            images: Record<string, { actual?: string; expect?: string; source?: string }>
+          }[]
+        }
+      >
+    }
+    const passedImage = afterPassed.tests['t-failed-then-passed']?.results?.[0]?.images?.['header']
+    expect(passedImage?.source).toBe('baseline-only')
+    expect(passedImage?.expect).toBe(
+      `/baseline/${encodeURIComponent('t-failed-then-passed')}/0/${encodeURIComponent('header')}`,
+    )
+    expect(passedImage?.actual).toBeUndefined()
+  })
 })
 
 describe('isPathWithinRoots', () => {

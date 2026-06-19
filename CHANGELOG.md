@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-06-19
+
+### Added
+
+- **path-utils:** Add cross-platform absolute path helpers
+- **server:** Log diagnostic when /file URL cannot resolve on host OS
+
+### Documentation
+
+- **plans:** Cross-OS path handling and stale actual URL on passing rerun
+- Document cross-OS artifact loading limitations
+
+### Fixed
+
+- **report-utils:** Route Windows-style absolute paths to /file on any host
+- **server:** Check pre-resolve path for foreign-OS diagnostic
+- **report-state:** Drop stale comparison actual URL on passed reruns
+- **report-state:** Strip stale actual/diff when preserving baseline-only images
+
+### Testing
+
+- **path-utils:** Cover forward-slash UNC form
+- **server-routes:** Cover baseline enrichment after failed→passed progression
 ## [0.1.3] - 2026-06-18
 
 ### Fixed
